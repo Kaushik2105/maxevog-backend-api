@@ -80,9 +80,6 @@ DB_USER=postgres
 DB_PASSWORD=your_postgres_password
 DB_SQLITE_FALLBACK=true
 
-JWT_SECRET=your_super_secret_jwt_key
-ADMIN_EMAIL=karmakark1267@gmail.com
-
 CLOUDINARY_CLOUD_NAME=your_cloud_name
 CLOUDINARY_API_KEY=your_api_key
 CLOUDINARY_API_SECRET=your_api_secret

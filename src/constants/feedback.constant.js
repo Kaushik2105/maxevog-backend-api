@@ -1,0 +1,28 @@
+/**
+ * Feedback Constants
+ */
+const FEEDBACK_TYPES = Object.freeze({
+  FEEDBACK: 'FEEDBACK',
+  SUGGESTION: 'SUGGESTION',
+  BUG_REPORT: 'BUG_REPORT',
+  COMPLAINT: 'COMPLAINT',
+  OTHER: 'OTHER',
+});
+
+const ALL_FEEDBACK_TYPES = Object.freeze(Object.values(FEEDBACK_TYPES));
+
+const FEEDBACK_STATUSES = Object.freeze({
+  OPEN: 'OPEN',
+  IN_REVIEW: 'IN_REVIEW',
+  RESOLVED: 'RESOLVED',
+  CLOSED: 'CLOSED',
+});
+
+const ALL_FEEDBACK_STATUSES = Object.freeze(Object.values(FEEDBACK_STATUSES));
+
+module.exports = {
+  FEEDBACK_TYPES,
+  ALL_FEEDBACK_TYPES,
+  FEEDBACK_STATUSES,
+  ALL_FEEDBACK_STATUSES,
+};

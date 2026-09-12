@@ -1,0 +1,30 @@
+/**
+ * Payment Constants
+ */
+const PAYMENT_STATUSES = Object.freeze({
+  PENDING: 'PENDING',
+  SUCCESS: 'SUCCESS',
+  FAILED: 'FAILED',
+  REFUNDED: 'REFUNDED',
+});
+
+const ALL_PAYMENT_STATUSES = Object.freeze(Object.values(PAYMENT_STATUSES));
+
+const PAYMENT_PROVIDERS = Object.freeze({
+  MOCK: 'MOCK',
+  RAZORPAY: 'RAZORPAY',
+  STRIPE: 'STRIPE',
+  CASHFREE: 'CASHFREE',
+});
+
+const PAYMENT_TYPES = Object.freeze({
+  ASSISTANCE: 'ASSISTANCE',
+  MEMBERSHIP: 'MEMBERSHIP',
+});
+
+module.exports = {
+  PAYMENT_STATUSES,
+  ALL_PAYMENT_STATUSES,
+  PAYMENT_PROVIDERS,
+  PAYMENT_TYPES,
+};

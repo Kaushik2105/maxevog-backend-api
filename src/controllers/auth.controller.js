@@ -69,8 +69,55 @@ async function changePassword(req, res, next) {
   }
 }
 
+async function sendOtp(req, res, next) {
+  try {
+    const { email, fullName, name } = req.body;
+    const candidateName = (fullName || name || '').trim();
+    const result = await authService.sendRegistrationOtp({ email, fullName: candidateName });
+    return sendSuccess(res, {
+      statusCode: 200,
+      message: result.message,
+      data: result,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+async function verifyOtpRegister(req, res, next) {
+  try {
+    const { email, password, fullName, name, otp } = req.body;
+    const candidateName = (fullName || name || '').trim();
+    const result = await authService.verifyOtpAndRegister({ email, password, fullName: candidateName, otp });
+    return sendSuccess(res, {
+      statusCode: 201,
+      message: 'Account created and verified successfully',
+      data: result,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+async function googleAuth(req, res, next) {
+  try {
+    const { credential, email, fullName, avatarUrl, googleId } = req.body;
+    const result = await authService.googleAuth({ credential, email, fullName, avatarUrl, googleId });
+    return sendSuccess(res, {
+      statusCode: 200,
+      message: 'Google authentication successful',
+      data: result,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
 module.exports = {
   register,
+  sendOtp,
+  verifyOtpRegister,
+  googleAuth,
   login,
   me,
   logout,

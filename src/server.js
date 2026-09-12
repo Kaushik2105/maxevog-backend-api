@@ -6,6 +6,7 @@ const app = require('./app');
 const envConfig = require('./config/env.config');
 const { connectDatabase } = require('./config/database.config');
 const { syncDatabase } = require('./models');
+const { ensureAdminAccount } = require('./utils/adminSetup.util');
 const logger = require('./utils/logger.util');
 
 async function startServer() {
@@ -13,20 +14,18 @@ async function startServer() {
     // 1. Connect and initialize database
     await connectDatabase();
 
-    // 2. Synchronize database tables (in dev/test)
-    if (!envConfig.app.isProduction) {
-      await syncDatabase({ alter: false });
-    }
+    // 2. Synchronize database tables
+    await syncDatabase({ alter: false });
 
-    // 3. Start Express server
+    // 3. Ensure master administrator account exists
+    await ensureAdminAccount();
+
+    // 4. Start Express server
+    const baseUrl = envConfig.app.baseUrl;
     const server = app.listen(envConfig.app.port, () => {
-      logger.info(`========================================================`);
-      logger.info(`  Government Recruitment Platform Backend (V1) is Running`);
-      logger.info(`  Port: ${envConfig.app.port}`);
-      logger.info(`  Environment: ${envConfig.app.env}`);
-      logger.info(`  Swagger Docs: http://localhost:${envConfig.app.port}/docs`);
-      logger.info(`  Health Check: http://localhost:${envConfig.app.port}/health`);
-      logger.info(`========================================================`);
+      logger.info(`Server running on port ${envConfig.app.port} (${envConfig.app.env})`);
+      logger.info(`Swagger Docs: ${baseUrl}/docs`);
+      logger.info(`Health Check: ${baseUrl}/health`);
     });
 
     // Graceful Shutdown

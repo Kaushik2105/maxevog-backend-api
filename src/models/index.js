@@ -18,6 +18,7 @@ const Notification = require('./notification.model');
 const NotificationPreference = require('./notificationPreference.model');
 const Feedback = require('./feedback.model');
 const AuditLog = require('./auditLog.model');
+const Otp = require('./otp.model');
 
 // ==========================================
 // User & Profile
@@ -133,6 +134,10 @@ AssistanceRequest.belongsTo(TimeSlot, {
   foreignKey: 'preferredSlotId',
   as: 'preferredSlot',
 });
+AssistanceRequest.belongsTo(TimeSlot, {
+  foreignKey: 'preferredSlotId',
+  as: 'timeSlot',
+});
 
 AssistanceRequest.hasOne(Application, {
   foreignKey: 'assistanceRequestId',
@@ -245,4 +250,5 @@ module.exports = {
   NotificationPreference,
   Feedback,
   AuditLog,
+  Otp,
 };

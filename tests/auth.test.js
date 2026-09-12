@@ -99,4 +99,60 @@ describe('Authentication Module', () => {
     expect(res.status).toBe(401);
     expect(res.body.success).toBe(false);
   });
+
+  it('should send registration OTP via /auth/send-otp', async () => {
+    const res = await request(app)
+      .post('/api/v1/auth/send-otp')
+      .send({
+        email: 'otp.candidate@example.com',
+        fullName: 'OTP Candidate',
+      });
+
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(res.body.data.email).toBe('otp.candidate@example.com');
+  });
+
+  it('should verify OTP and register candidate via /auth/verify-otp-register', async () => {
+    // 1. Send OTP
+    const otpRes = await request(app)
+      .post('/api/v1/auth/send-otp')
+      .send({
+        email: 'verified.candidate@example.com',
+        fullName: 'Verified Candidate',
+      });
+    const otpCode = otpRes.body.data.devOtp;
+
+    // 2. Verify & Register
+    const regRes = await request(app)
+      .post('/api/v1/auth/verify-otp-register')
+      .send({
+        email: 'verified.candidate@example.com',
+        password: 'Password@987',
+        fullName: 'Verified Candidate',
+        otp: otpCode,
+      });
+
+    expect(regRes.status).toBe(201);
+    expect(regRes.body.success).toBe(true);
+    expect(regRes.body.data.user.email).toBe('verified.candidate@example.com');
+    expect(regRes.body.data.token).toBeDefined();
+  });
+
+  it('should authenticate via Google OAuth /auth/google and save avatar/name', async () => {
+    const res = await request(app)
+      .post('/api/v1/auth/google')
+      .send({
+        email: 'google.applicant@example.com',
+        fullName: 'Google Aspirant',
+        avatarUrl: 'https://lh3.googleusercontent.com/a/avatar-test',
+        googleId: 'google-sub-123456',
+      });
+
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(res.body.data.user.email).toBe('google.applicant@example.com');
+    expect(res.body.data.user.profile.avatarUrl).toBe('https://lh3.googleusercontent.com/a/avatar-test');
+    expect(res.body.data.token).toBeDefined();
+  });
 });

@@ -13,18 +13,13 @@ const envConfig = Object.freeze({
   app: {
     env: process.env.NODE_ENV || 'development',
     port: parseInt(process.env.PORT, 10) || 5000,
+    baseUrl: process.env.BASE_URL || process.env.RENDER_EXTERNAL_URL || `http://localhost:${parseInt(process.env.PORT, 10) || 5000}`,
     isProduction: process.env.NODE_ENV === 'production',
     isTest: process.env.NODE_ENV === 'test',
     frontendUrl: process.env.FRONTEND_URL || 'http://localhost:3000',
   },
   db: {
-    dialect: process.env.DB_DIALECT || 'postgres',
     url: process.env.DATABASE_URL || null,
-    host: process.env.DB_HOST || 'localhost',
-    port: parseInt(process.env.DB_PORT, 10) || 5432,
-    name: process.env.DB_NAME || 'gov_recruitment_db',
-    user: process.env.DB_USER || 'postgres',
-    password: process.env.DB_PASSWORD || '',
     sqliteFallback: process.env.DB_SQLITE_FALLBACK === 'true' || process.env.NODE_ENV === 'test',
     logging: process.env.NODE_ENV === 'development' && process.env.DB_LOGGING === 'true' ? console.log : false,
   },
@@ -33,8 +28,17 @@ const envConfig = Object.freeze({
     expiresIn: process.env.JWT_EXPIRES_IN || '7d',
   },
   admin: {
-    email: process.env.ADMIN_EMAIL || 'karmakark1267@gmail.com',
-    initialPassword: process.env.ADMIN_INITIAL_PASSWORD || '',
+    email: (process.env.ADMIN_EMAIL || 'karmakark1267@gmail.com').trim().toLowerCase(),
+    initialPassword: (process.env.ADMIN_INITIAL_PASSWORD || 'Maxevog@2026').trim(),
+  },
+  emailjs: {
+    serviceId: process.env.EMAILJS_SERVICE_ID || '',
+    templateId: process.env.EMAILJS_TEMPLATE_ID || '',
+    publicKey: process.env.EMAILJS_PUBLIC_KEY || '',
+    privateKey: process.env.EMAILJS_PRIVATE_KEY || '',
+  },
+  google: {
+    clientId: process.env.GOOGLE_CLIENT_ID || '',
   },
   cloudinary: {
     cloudName: process.env.CLOUDINARY_CLOUD_NAME || '',

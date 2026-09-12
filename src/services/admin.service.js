@@ -6,16 +6,20 @@ const { Op } = require('sequelize');
 const {
   User,
   Profile,
+  NotificationPreference,
   Application,
   AssistanceRequest,
   Membership,
   Payment,
   Feedback,
+  sequelize,
 } = require('../models');
 const { APPLICATION_STATUSES } = require('../constants/application.constant');
 const { ASSISTANCE_STATUSES } = require('../constants/assistance.constant');
 const { MEMBERSHIP_STATUSES } = require('../constants/membership.constant');
 const { AUDIT_ACTIONS } = require('../constants/audit.constant');
+const { ROLES } = require('../constants/role.constant');
+const { hashPassword } = require('../utils/password.util');
 const { getPaginationParams, buildPaginationMeta } = require('../utils/pagination.util');
 const { logAction } = require('./audit.service');
 const { AppError } = require('../middleware/error.middleware');
@@ -402,6 +406,67 @@ async function listAuditLogs(query = {}) {
   return { logs: rows, meta: buildPaginationMeta({ count, page, limit }) };
 }
 
+/**
+ * Create a new Desk Agent user (Admin only)
+ */
+async function createAgent({ email, password, fullName, phone = '' }) {
+  const normalizedEmail = email.trim().toLowerCase();
+
+  const existingUser = await User.findOne({ where: { email: normalizedEmail } });
+  if (existingUser) {
+    throw new AppError('An account with this email address already exists', 409);
+  }
+
+  const hashedPassword = await hashPassword(password);
+
+  const result = await sequelize.transaction(async (t) => {
+    const user = await User.create(
+      {
+        email: normalizedEmail,
+        passwordHash: hashedPassword,
+        role: ROLES.AGENT,
+        status: 'ACTIVE',
+        mustChangePassword: false,
+      },
+      { transaction: t }
+    );
+
+    const profile = await Profile.create(
+      {
+        userId: user.id,
+        email: normalizedEmail,
+        fullName,
+        mobileNumber: phone || null,
+        category: 'GENERAL',
+        profileCompletionPercentage: 100,
+      },
+      { transaction: t }
+    );
+
+    await NotificationPreference.create(
+      {
+        userId: user.id,
+        emailEnabled: true,
+        telegramEnabled: false,
+      },
+      { transaction: t }
+    );
+
+    return { user, profile };
+  });
+
+  return {
+    agent: {
+      id: result.user.id,
+      email: result.user.email,
+      role: result.user.role,
+      status: result.user.status,
+      profile: result.profile.toJSON(),
+      createdAt: result.user.createdAt,
+    },
+  };
+}
+
 module.exports = {
   getDashboardOverview,
   getUserGrowthAnalytics,
@@ -411,6 +476,7 @@ module.exports = {
   listAllApplications,
   getFinancialsOverview,
   listAgents,
+  createAgent,
   listAuditLogs,
 };
 

@@ -85,4 +85,22 @@ describe('Admin Dashboard & Analytics Module', () => {
     expect(res.status).toBe(403);
     expect(res.body.success).toBe(false);
   });
+
+  it('should allow admin to create a new desk agent user', async () => {
+    const res = await request(app)
+      .post('/api/v1/admin/agents')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({
+        fullName: 'Officer Vikram Singh',
+        email: 'agent.vikram@recruitment.gov.in',
+        password: 'AgentPassword@123',
+        phone: '9876543210',
+      });
+
+    expect(res.status).toBe(201);
+    expect(res.body.success).toBe(true);
+    expect(res.body.data.agent.email).toBe('agent.vikram@recruitment.gov.in');
+    expect(res.body.data.agent.role).toBe('AGENT');
+    expect(res.body.data.agent.profile.fullName).toBe('Officer Vikram Singh');
+  });
 });

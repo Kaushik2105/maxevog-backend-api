@@ -6,8 +6,6 @@
   "scripts": {
     "start": "node src/server.js",
     "dev": "nodemon src/server.js",
-    "seed:admin": "node src/seeders/admin.seeder.js",
-    "seed:demo": "node src/seeders/demo.seeder.js",
     "test": "jest --runInBand --detectOpenHandles --forceExit"
   },
   "keywords": [

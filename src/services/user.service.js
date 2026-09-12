@@ -15,6 +15,11 @@ async function getProfile(userId) {
   if (!profile) {
     throw new AppError('Profile not found', 404);
   }
+  const recalculated = profile.calculateCompletion();
+  if (profile.profileCompletionPercentage !== recalculated) {
+    profile.profileCompletionPercentage = recalculated;
+    await profile.save();
+  }
   return profile;
 }
 
@@ -42,6 +47,16 @@ async function updateProfile(userId, profileData, files = {}) {
     profile.resumeUrl = resumeUrl;
   }
 
+  const data = { ...profileData };
+  // Normalize aliases from various frontend forms
+  if (data.name && !data.fullName) data.fullName = data.name;
+  if (data.phone && !data.mobileNumber) data.mobileNumber = data.phone;
+  if (data.dateOfBirth && !data.dob) data.dob = data.dateOfBirth;
+  if (data.highestQualification && !data.educationLevel) data.educationLevel = data.highestQualification;
+  if (data.qualificationDetails && !data.degree) data.degree = data.qualificationDetails;
+  if (typeof data.gender === 'string') data.gender = data.gender.toUpperCase();
+  if (typeof data.category === 'string') data.category = data.category.toUpperCase();
+
   const allowedFields = [
     'fullName',
     'dob',
@@ -61,8 +76,8 @@ async function updateProfile(userId, profileData, files = {}) {
   ];
 
   for (const field of allowedFields) {
-    if (profileData[field] !== undefined) {
-      profile[field] = profileData[field];
+    if (data[field] !== undefined) {
+      profile[field] = data[field];
     }
   }
 

@@ -112,6 +112,20 @@ async function listAgents(req, res, next) {
   }
 }
 
+async function createAgent(req, res, next) {
+  try {
+    const { email, password, fullName, phone } = req.body;
+    const result = await adminService.createAgent({ email, password, fullName, phone });
+    return sendSuccess(res, {
+      statusCode: 201,
+      message: 'Desk agent account created successfully',
+      data: result,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
 async function listAuditLogs(req, res, next) {
   try {
     const { logs, meta } = await adminService.listAuditLogs(req.query);
@@ -135,5 +149,6 @@ module.exports = {
   listAllApplications,
   getFinancialsOverview,
   listAgents,
+  createAgent,
   listAuditLogs,
 };

@@ -9,15 +9,36 @@ const envConfig = require('./env.config');
 let sequelize;
 
 if (envConfig.app.isTest) {
-  // Test environment uses SQLite in-memory for zero external dependencies and fast isolation
+  // Test environment uses SQLite in-memory for fast isolation
   sequelize = new Sequelize({
     dialect: 'sqlite',
     storage: ':memory:',
     logging: false,
   });
 } else if (envConfig.db.url) {
+  const isPostgres =
+    envConfig.db.url.startsWith('postgres://') ||
+    envConfig.db.url.startsWith('postgresql://');
+
+  const isLocalhost =
+    envConfig.db.url.includes('localhost') ||
+    envConfig.db.url.includes('127.0.0.1') ||
+    envConfig.db.url.includes('::1');
+
+  const forceSsl =
+    envConfig.db.url.includes('sslmode=require') ||
+    envConfig.db.url.includes('ssl=true');
+
+  const disableSsl =
+    envConfig.db.url.includes('sslmode=disable') ||
+    envConfig.db.url.includes('ssl=false');
+
+  const useSsl =
+    isPostgres &&
+    !disableSsl &&
+    (forceSsl || (!isLocalhost && envConfig.app.isProduction));
+
   sequelize = new Sequelize(envConfig.db.url, {
-    dialect: envConfig.db.dialect,
     logging: envConfig.db.logging,
     pool: {
       max: 10,
@@ -25,7 +46,7 @@ if (envConfig.app.isTest) {
       acquire: 30000,
       idle: 10000,
     },
-    dialectOptions: envConfig.app.isProduction
+    dialectOptions: useSsl
       ? {
           ssl: {
             require: true,
@@ -34,26 +55,8 @@ if (envConfig.app.isTest) {
         }
       : {},
   });
-} else if (envConfig.db.dialect === 'postgres') {
-  sequelize = new Sequelize(
-    envConfig.db.name,
-    envConfig.db.user,
-    envConfig.db.password,
-    {
-      host: envConfig.db.host,
-      port: envConfig.db.port,
-      dialect: 'postgres',
-      logging: envConfig.db.logging,
-      pool: {
-        max: 10,
-        min: 0,
-        acquire: 30000,
-        idle: 10000,
-      },
-    }
-  );
 } else {
-  // SQLite fallback
+  // SQLite fallback when DATABASE_URL is not set
   const dbPath = path.resolve(__dirname, '../../database.sqlite');
   sequelize = new Sequelize({
     dialect: 'sqlite',
@@ -63,16 +66,15 @@ if (envConfig.app.isTest) {
 }
 
 /**
- * Test database connection and fallback to SQLite if PostgreSQL fails and fallback is allowed
+ * Test database connection and fallback to SQLite if primary connection fails and fallback is allowed
  */
 async function connectDatabase() {
   try {
     await sequelize.authenticate();
-    console.log(`[DB] Successfully connected via ${sequelize.getDialect()} database.`);
+    console.log('[DB] Database connected successfully.');
     return sequelize;
   } catch (error) {
     if (envConfig.db.sqliteFallback && sequelize.getDialect() !== 'sqlite') {
-      console.warn(`[DB] PostgreSQL connection failed (${error.message}). Falling back to local SQLite...`);
       const fallbackPath = path.resolve(__dirname, '../../database.sqlite');
       sequelize = new Sequelize({
         dialect: 'sqlite',
@@ -80,7 +82,7 @@ async function connectDatabase() {
         logging: false,
       });
       await sequelize.authenticate();
-      console.log('[DB] Fallback SQLite database connected successfully.');
+      console.log('[DB] Database connected successfully (SQLite fallback).');
       return sequelize;
     }
     console.error('[DB] Database connection error:', error.message);

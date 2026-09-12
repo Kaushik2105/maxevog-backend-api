@@ -46,8 +46,41 @@ const changePasswordValidator = [
     .withMessage('New password must be at least 8 characters long'),
 ];
 
+const sendOtpValidator = [
+  body('email')
+    .isEmail()
+    .withMessage('A valid email address is required')
+    .normalizeEmail(),
+  body('fullName')
+    .optional()
+    .trim()
+    .isLength({ max: 100 })
+    .withMessage('Full name cannot exceed 100 characters'),
+];
+
+const verifyOtpRegisterValidator = [
+  body('email')
+    .isEmail()
+    .withMessage('A valid email address is required')
+    .normalizeEmail(),
+  body('password')
+    .isLength({ min: 6 })
+    .withMessage('Password must be at least 6 characters long'),
+  body('otp')
+    .trim()
+    .isLength({ min: 4, max: 8 })
+    .withMessage('A valid verification code is required'),
+  body('fullName')
+    .optional()
+    .trim()
+    .isLength({ max: 100 })
+    .withMessage('Full name cannot exceed 100 characters'),
+];
+
 module.exports = {
   registerValidator,
+  sendOtpValidator,
+  verifyOtpRegisterValidator,
   loginValidator,
   changePasswordValidator,
 };

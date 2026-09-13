@@ -45,4 +45,20 @@ describe('Security & Zero-Credential Enforcement', () => {
     expect(res.status).toBe(200);
     expect(res.body.status).toBe('healthy');
   });
+
+  it('should allow CORS requests from maxevog.vercel.app and set access-control-allow-origin', async () => {
+    const res = await request(app)
+      .get('/health')
+      .set('Origin', 'https://maxevog.vercel.app');
+    expect(res.status).toBe(200);
+    expect(res.headers['access-control-allow-origin']).toBe('https://maxevog.vercel.app');
+  });
+
+  it('should allow CORS requests from Vercel preview deployments', async () => {
+    const res = await request(app)
+      .get('/health')
+      .set('Origin', 'https://maxevog-dev.vercel.app');
+    expect(res.status).toBe(200);
+    expect(res.headers['access-control-allow-origin']).toBe('https://maxevog-dev.vercel.app');
+  });
 });

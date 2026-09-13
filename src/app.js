@@ -11,12 +11,23 @@ const envConfig = require('./config/env.config');
 const swaggerSpec = require('./config/swagger.config');
 const apiV1Router = require('./routes');
 const { apiLimiter } = require('./middleware/rateLimiter.middleware');
-const { notFoundHandler, errorHandler } = require('./middleware/error.middleware');
+const { notFoundHandler, errorHandler, AppError } = require('./middleware/error.middleware');
 
 const app = express();
 
 // Security Headers
 app.use(helmet());
+
+// Allowed origins list
+const configuredOrigins = [
+  envConfig.app.frontendUrl,
+  'https://maxevog.vercel.app',
+  'http://localhost:3000',
+  'http://localhost:5173',
+  ...(envConfig.app.allowedOrigins || []),
+]
+  .filter(Boolean)
+  .map((origin) => origin.replace(/\/+$/, ''));
 
 // CORS Configuration
 app.use(
@@ -24,15 +35,22 @@ app.use(
     origin: (origin, callback) => {
       // Allow requests with no origin (like mobile apps, curl, Postman)
       if (!origin) return callback(null, true);
-      // In development or if origin matches frontendUrl
-      if (
+
+      const cleanOrigin = origin.replace(/\/+$/, '');
+
+      // In development or if origin matches allowed domains or vercel deployments
+      const isAllowed =
         !envConfig.app.isProduction ||
-        origin === envConfig.app.frontendUrl ||
-        origin.includes('localhost')
-      ) {
+        configuredOrigins.includes(cleanOrigin) ||
+        cleanOrigin.includes('localhost') ||
+        cleanOrigin.includes('127.0.0.1') ||
+        /^https:\/\/maxevog.*\.vercel\.app$/.test(cleanOrigin);
+
+      if (isAllowed) {
         return callback(null, true);
       }
-      return callback(new Error('Blocked by CORS policy'), false);
+
+      return callback(new AppError(`Origin '${origin}' blocked by CORS policy`, 403), false);
     },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],

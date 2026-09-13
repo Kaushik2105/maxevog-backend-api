@@ -13,6 +13,7 @@ const { uploadSingle } = require('../middleware/upload.middleware');
 // Public routes
 router.get('/', jobController.listPublicJobs);
 router.get('/eligible/me', authenticate, jobController.getEligibleJobs);
+router.get('/:id/eligibility', authenticate, jobController.checkJobEligibility);
 router.get('/:id', jobController.getJobDetails);
 
 // Admin routes (mounted on /api/v1/jobs and /api/v1/admin/jobs)

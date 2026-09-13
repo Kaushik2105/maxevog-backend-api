@@ -45,6 +45,19 @@ async function getEligibleJobs(req, res, next) {
   }
 }
 
+async function checkJobEligibility(req, res, next) {
+  try {
+    const assessment = await jobService.checkJobEligibility(req.params.id, req.user.id);
+    return sendSuccess(res, {
+      statusCode: 200,
+      message: 'Eligibility evaluated successfully',
+      data: assessment,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
 async function listAdminJobs(req, res, next) {
   try {
     const { jobs, meta } = await jobService.listAdminJobs(req.query);
@@ -130,6 +143,7 @@ module.exports = {
   listPublicJobs,
   getJobDetails,
   getEligibleJobs,
+  checkJobEligibility,
   listAdminJobs,
   createJob,
   updateJob,

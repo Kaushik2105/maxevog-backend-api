@@ -121,6 +121,19 @@ async function getEligibleJobsForUser(userId, query = {}) {
 }
 
 /**
+ * Check eligibility of a specific candidate for a specific job
+ */
+async function checkJobEligibility(jobId, userId) {
+  const job = await Job.findByPk(jobId);
+  if (!job) {
+    throw new AppError('Recruitment not found', 404);
+  }
+  const profile = await Profile.findOne({ where: { userId } });
+  const assessment = evaluateEligibility(profile, job);
+  return assessment;
+}
+
+/**
  * Admin: List all jobs (including drafts and archived)
  */
 async function listAdminJobs(query = {}) {
@@ -154,6 +167,66 @@ async function listAdminJobs(query = {}) {
   return { jobs: rows, meta };
 }
 
+function normalizeJobData(jobData, attachmentUrl) {
+  const applicationLastDate = jobData.applicationLastDate || jobData.lastDate;
+  const applicationFee =
+    jobData.applicationFee !== undefined
+      ? parseFloat(jobData.applicationFee)
+      : jobData.fee !== undefined
+      ? parseFloat(jobData.fee)
+      : 0;
+  const vacancies =
+    jobData.vacancies !== undefined && jobData.vacancies !== ''
+      ? parseInt(jobData.vacancies, 10)
+      : 1;
+  const officialApplicationUrl = jobData.officialApplicationUrl || jobData.officialUrl;
+  const officialNotificationUrl = jobData.officialNotificationUrl || jobData.officialUrl;
+
+  let tables = jobData.tables;
+  if (typeof tables === 'string') {
+    try {
+      tables = JSON.parse(tables);
+    } catch (e) {
+      tables = [];
+    }
+  }
+
+  let eligibleDegrees = jobData.eligibleDegrees;
+  if (typeof eligibleDegrees === 'string') {
+    try {
+      eligibleDegrees = JSON.parse(eligibleDegrees);
+    } catch (e) {
+      eligibleDegrees = [];
+    }
+  }
+
+  let eligibleBranches = jobData.eligibleBranches;
+  if (typeof eligibleBranches === 'string') {
+    try {
+      eligibleBranches = JSON.parse(eligibleBranches);
+    } catch (e) {
+      eligibleBranches = [];
+    }
+  }
+
+  return {
+    ...jobData,
+    applicationLastDate,
+    applicationFee,
+    vacancies,
+    officialApplicationUrl,
+    officialNotificationUrl,
+    tables: Array.isArray(tables) ? tables : [],
+    eligibleDegrees: Array.isArray(eligibleDegrees) ? eligibleDegrees : [],
+    eligibleBranches: Array.isArray(eligibleBranches) ? eligibleBranches : [],
+    isPublished: jobData.isPublished !== undefined ? Boolean(jobData.isPublished) : true,
+    status:
+      jobData.status ||
+      (jobData.isPublished === false ? JOB_STATUSES.DRAFT : JOB_STATUSES.PUBLISHED),
+    attachmentUrl: attachmentUrl || jobData.attachmentUrl,
+  };
+}
+
 /**
  * Admin: Create a new job
  */
@@ -163,10 +236,8 @@ async function createJob(jobData, attachmentBuffer, actor) {
     attachmentUrl = await uploadDocument(attachmentBuffer, 'job_notifications', 'notification');
   }
 
-  const job = await Job.create({
-    ...jobData,
-    attachmentUrl: attachmentUrl || jobData.attachmentUrl,
-  });
+  const normalized = normalizeJobData(jobData, attachmentUrl);
+  const job = await Job.create(normalized);
 
   await logAction({
     actorId: actor ? actor.id : null,
@@ -194,10 +265,8 @@ async function updateJob(jobId, jobData, attachmentBuffer, actor) {
     attachmentUrl = await uploadDocument(attachmentBuffer, 'job_notifications', `job_${jobId}`);
   }
 
-  await job.update({
-    ...jobData,
-    attachmentUrl,
-  });
+  const normalized = normalizeJobData(jobData, attachmentUrl);
+  await job.update(normalized);
 
   await logAction({
     actorId: actor ? actor.id : null,
@@ -276,6 +345,7 @@ module.exports = {
   listPublicJobs,
   getJobById,
   getEligibleJobsForUser,
+  checkJobEligibility,
   listAdminJobs,
   createJob,
   updateJob,

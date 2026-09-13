@@ -103,10 +103,70 @@ function evaluateEligibility(profile, job) {
     }
   }
 
-  // 3. Degree & Branch Requirements Check
-  if (job.degreeRequirements && profile.degree) {
-    const candidateDegree = (profile.degree || '').toLowerCase();
-    const candidateBranch = (profile.branch || '').toLowerCase();
+  // 3. Degree & Branch Requirements Check (from eligibleDegrees / eligibleBranches or legacy degreeRequirements)
+  const candidateDegree = (profile.degree || profile.qualification || '').toLowerCase();
+  const candidateBranch = (profile.branch || '').toLowerCase();
+
+  const eligibleDegrees = Array.isArray(job.eligibleDegrees) ? job.eligibleDegrees : [];
+  const eligibleBranches = Array.isArray(job.eligibleBranches) ? job.eligibleBranches : [];
+
+  if (eligibleDegrees.length > 0) {
+    const isAnyDegreeOpen = eligibleDegrees.some((d) => {
+      const lower = d.toLowerCase();
+      return lower.includes('any graduate') || lower.includes('any degree') || lower.includes('all');
+    });
+
+    let degreeMatched = isAnyDegreeOpen;
+    if (!degreeMatched && candidateDegree) {
+      degreeMatched = eligibleDegrees.some((d) => {
+        const lower = d.toLowerCase();
+        return (
+          lower.includes(candidateDegree) ||
+          candidateDegree.includes(lower) ||
+          (lower.includes('b.tech') && candidateDegree.includes('b.tech')) ||
+          (lower.includes('mbbs') && candidateDegree.includes('mbbs')) ||
+          (lower.includes('b.sc') && candidateDegree.includes('b.sc')) ||
+          (lower.includes('12th') && candidateDegree.includes('12th')) ||
+          (lower.includes('10th') && candidateDegree.includes('10th'))
+        );
+      });
+    }
+
+    let branchMatched = false;
+    if (
+      eligibleBranches.length === 0 ||
+      eligibleBranches.some(
+        (b) =>
+          b.toLowerCase().includes('any') ||
+          b.toLowerCase().includes('all') ||
+          b.toLowerCase().includes('general')
+      )
+    ) {
+      branchMatched = true;
+    } else if (candidateBranch) {
+      branchMatched = eligibleBranches.some((b) => {
+        const lower = b.toLowerCase();
+        return lower.includes(candidateBranch) || candidateBranch.includes(lower);
+      });
+    }
+
+    if (degreeMatched && branchMatched) {
+      clearMatches++;
+      reasons.push(
+        `Degree & Branch (${profile.degree || profile.qualification || ''}${profile.branch ? ` - ${profile.branch}` : ''}) match recruitment criteria.`
+      );
+    } else if (degreeMatched && !branchMatched) {
+      uncertainMatches++;
+      reasons.push(
+        `Degree matches, but branch (${profile.branch || 'General'}) may require equivalence verification.`
+      );
+    } else {
+      definiteDisqualification = true;
+      reasons.push(
+        `Degree (${profile.degree || profile.qualification || 'None specified'}) does not match eligible qualifications.`
+      );
+    }
+  } else if (job.degreeRequirements && profile.degree) {
     const reqDegrees = job.degreeRequirements.toLowerCase().split(',').map((d) => d.trim());
 
     const isOpenToAnyGraduate = reqDegrees.some((d) =>

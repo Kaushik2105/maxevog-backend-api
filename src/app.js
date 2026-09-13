@@ -15,6 +15,9 @@ const { notFoundHandler, errorHandler, AppError } = require('./middleware/error.
 
 const app = express();
 
+// Trust reverse proxy (Render, Heroku, Cloudflare, Vercel) for express-rate-limit
+app.set('trust proxy', 1);
+
 // Security Headers
 app.use(helmet());
 

@@ -229,6 +229,32 @@ Feedback.belongsTo(User, {
  * @param {object} options
  */
 async function syncDatabase(options = {}) {
+  if (sequelize.getDialect() === 'postgres') {
+    try {
+      await sequelize.query(`
+        DO $$ 
+        BEGIN 
+          IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'enum_profiles_position') THEN 
+            CREATE TYPE "enum_profiles_position" AS ENUM ('CANDIDATE', 'ADMIN', 'AGENT'); 
+          END IF; 
+        END $$;
+      `);
+      await sequelize.query(`
+        ALTER TABLE "profiles" ADD COLUMN IF NOT EXISTS "position" "enum_profiles_position" DEFAULT 'CANDIDATE';
+      `);
+      await sequelize.query(`
+        ALTER TABLE "jobs" ADD COLUMN IF NOT EXISTS "tables" JSONB DEFAULT '[]'::jsonb;
+      `);
+      await sequelize.query(`
+        ALTER TABLE "jobs" ADD COLUMN IF NOT EXISTS "eligibleDegrees" JSONB DEFAULT '[]'::jsonb;
+      `);
+      await sequelize.query(`
+        ALTER TABLE "jobs" ADD COLUMN IF NOT EXISTS "eligibleBranches" JSONB DEFAULT '[]'::jsonb;
+      `);
+    } catch (e) {
+      // Fall through to standard sync if tables do not exist yet
+    }
+  }
   await sequelize.sync(options);
   console.log('[DB] Database schema synchronized successfully.');
 }

@@ -130,6 +130,49 @@ const Job = sequelize.define(
       type: DataTypes.STRING,
       allowNull: true,
     },
+    tables: {
+      type: DataTypes.JSON,
+      defaultValue: [],
+      allowNull: true,
+    },
+    eligibleDegrees: {
+      type: DataTypes.JSON,
+      defaultValue: [],
+      allowNull: true,
+    },
+    eligibleBranches: {
+      type: DataTypes.JSON,
+      defaultValue: [],
+      allowNull: true,
+    },
+    lastDate: {
+      type: DataTypes.VIRTUAL,
+      get() {
+        return this.getDataValue('applicationLastDate');
+      },
+      set(val) {
+        this.setDataValue('applicationLastDate', val);
+      },
+    },
+    fee: {
+      type: DataTypes.VIRTUAL,
+      get() {
+        return this.getDataValue('applicationFee');
+      },
+      set(val) {
+        this.setDataValue('applicationFee', val);
+      },
+    },
+    officialUrl: {
+      type: DataTypes.VIRTUAL,
+      get() {
+        return this.getDataValue('officialApplicationUrl') || this.getDataValue('officialNotificationUrl');
+      },
+      set(val) {
+        this.setDataValue('officialApplicationUrl', val);
+        this.setDataValue('officialNotificationUrl', val);
+      },
+    },
   },
   {
     tableName: 'jobs',

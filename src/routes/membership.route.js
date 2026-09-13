@@ -10,6 +10,8 @@ const { authenticate } = require('../middleware/auth.middleware');
 const { requireAdmin } = require('../middleware/admin.middleware');
 
 router.get('/', authenticate, membershipController.getCurrentMembership);
+router.get('/current', authenticate, membershipController.getCurrentMembership);
+
 router.post(
   '/purchase',
   authenticate,
@@ -17,6 +19,15 @@ router.post(
   validate,
   membershipController.purchaseMembership
 );
+router.post(
+  '/subscribe',
+  authenticate,
+  purchaseMembershipValidator,
+  validate,
+  membershipController.purchaseMembership
+);
+router.post('/verify-payment', authenticate, membershipController.verifyPayment);
+
 router.get('/history', authenticate, membershipController.getHistory);
 
 // Admin routes

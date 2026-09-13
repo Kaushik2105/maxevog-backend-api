@@ -44,10 +44,13 @@ const updateProfileValidator = [
     .optional({ checkFalsy: true })
     .isInt({ min: 1970, max: 2035 })
     .withMessage('Passing year must be between 1970 and 2035'),
-  body('experienceYears')
-    .optional({ checkFalsy: true })
-    .isFloat({ min: 0, max: 50 })
-    .withMessage('Experience years must be between 0 and 50'),
+  body('state').optional({ checkFalsy: true }).trim(),
+  body('district').optional({ checkFalsy: true }).trim(),
+  body('address').optional({ checkFalsy: true }).trim(),
+  body('educationLevel').optional({ checkFalsy: true }).trim(),
+  body('degree').optional({ checkFalsy: true }).trim(),
+  body('branch').optional({ checkFalsy: true }).trim(),
+  body('disabilityStatus').optional().isBoolean(),
 ];
 
 const updatePreferencesValidator = [

@@ -83,7 +83,7 @@ async function seedDemoData() {
         degree: 'Bachelor of Science (B.Sc)',
         branch: 'Computer Science',
         passingYear: 2021,
-        experienceYears: 1.5,
+        position: 'CANDIDATE',
         profileCompletionPercentage: 90,
       },
     });

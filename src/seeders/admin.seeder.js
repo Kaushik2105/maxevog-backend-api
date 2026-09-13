@@ -43,6 +43,7 @@ async function seedAdmin() {
       defaults: {
         userId: admin.id,
         fullName: 'Master Administrator',
+        position: 'ADMIN',
         email: adminEmail,
         category: 'GENERAL',
         profileCompletionPercentage: 100,

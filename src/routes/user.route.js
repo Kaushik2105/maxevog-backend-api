@@ -32,6 +32,7 @@ router.put(
   validate,
   userController.updateProfile
 );
+router.post('/avatar', authenticate, upload.single('avatar'), userController.updateProfile);
 
 router.get('/preferences', authenticate, userController.getPreferences);
 router.put(

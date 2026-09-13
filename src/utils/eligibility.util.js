@@ -103,18 +103,35 @@ function evaluateEligibility(profile, job) {
     }
   }
 
-  // 3. Degree Requirements Check
+  // 3. Degree & Branch Requirements Check
   if (job.degreeRequirements && profile.degree) {
-    const candidateDegree = profile.degree.toLowerCase();
+    const candidateDegree = (profile.degree || '').toLowerCase();
+    const candidateBranch = (profile.branch || '').toLowerCase();
     const reqDegrees = job.degreeRequirements.toLowerCase().split(',').map((d) => d.trim());
-    const matchesDegree = reqDegrees.some((d) => candidateDegree.includes(d) || d.includes(candidateDegree));
+
+    const isOpenToAnyGraduate = reqDegrees.some((d) =>
+      d.includes('any') || d.includes('all') || d.includes('any graduate') || d.includes('any discipline')
+    );
+
+    const matchesDegree =
+      isOpenToAnyGraduate ||
+      reqDegrees.some(
+        (d) =>
+          candidateDegree.includes(d) ||
+          d.includes(candidateDegree) ||
+          (candidateBranch && (d.includes(candidateBranch) || candidateBranch.includes(d)))
+      );
 
     if (matchesDegree) {
       clearMatches++;
-      reasons.push(`Degree (${profile.degree}) aligns with recruitment requirements.`);
+      reasons.push(
+        `Degree (${profile.degree}${profile.branch ? ` - ${profile.branch}` : ''}) aligns with recruitment requirements.`
+      );
     } else {
       uncertainMatches++;
-      reasons.push(`Degree (${profile.degree}) may require equivalency verification against: ${job.degreeRequirements}.`);
+      reasons.push(
+        `Degree (${profile.degree}) may require equivalency verification against: ${job.degreeRequirements}.`
+      );
     }
   }
 

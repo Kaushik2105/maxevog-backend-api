@@ -67,12 +67,11 @@ async function updateProfile(userId, profileData, files = {}) {
     'address',
     'category',
     'disabilityStatus',
-    'disabilityDetails',
     'educationLevel',
     'degree',
     'branch',
     'passingYear',
-    'experienceYears',
+    'avatarUrl',
   ];
 
   for (const field of allowedFields) {

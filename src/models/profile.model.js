@@ -21,6 +21,11 @@ const Profile = sequelize.define(
       type: DataTypes.STRING,
       allowNull: true,
     },
+    position: {
+      type: DataTypes.ENUM('CANDIDATE', 'ADMIN', 'AGENT'),
+      defaultValue: 'CANDIDATE',
+      allowNull: false,
+    },
     avatarUrl: {
       type: DataTypes.STRING,
       allowNull: true,
@@ -65,10 +70,6 @@ const Profile = sequelize.define(
       type: DataTypes.BOOLEAN,
       defaultValue: false,
     },
-    disabilityDetails: {
-      type: DataTypes.STRING,
-      allowNull: true,
-    },
     educationLevel: {
       type: DataTypes.STRING,
       allowNull: true,
@@ -83,14 +84,6 @@ const Profile = sequelize.define(
     },
     passingYear: {
       type: DataTypes.INTEGER,
-      allowNull: true,
-    },
-    experienceYears: {
-      type: DataTypes.FLOAT,
-      defaultValue: 0,
-    },
-    resumeUrl: {
-      type: DataTypes.STRING,
       allowNull: true,
     },
     profileCompletionPercentage: {
@@ -119,6 +112,9 @@ const Profile = sequelize.define(
       {
         fields: ['category'],
       },
+      {
+        fields: ['position'],
+      },
     ],
   }
 );
@@ -135,10 +131,13 @@ Profile.prototype.calculateCompletion = function () {
     'mobileNumber',
     'state',
     'district',
+    'address',
     'category',
     'educationLevel',
     'degree',
+    'branch',
     'passingYear',
+    'avatarUrl',
   ];
 
   let filled = 0;

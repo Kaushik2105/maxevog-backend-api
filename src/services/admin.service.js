@@ -436,6 +436,7 @@ async function createAgent({ email, password, fullName, phone = '' }) {
         userId: user.id,
         email: normalizedEmail,
         fullName,
+        position: 'AGENT',
         mobileNumber: phone || null,
         category: 'GENERAL',
         profileCompletionPercentage: 100,

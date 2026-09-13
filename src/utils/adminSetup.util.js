@@ -34,6 +34,7 @@ async function ensureAdminAccount() {
         defaults: {
           userId: admin.id,
           fullName: 'Master Administrator',
+          position: 'ADMIN',
           email: adminEmail,
           category: 'GENERAL',
           profileCompletionPercentage: 100,

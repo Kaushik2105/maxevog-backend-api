@@ -85,9 +85,29 @@ async function getStats(req, res, next) {
   }
 }
 
+async function verifyPayment(req, res, next) {
+  try {
+    const paymentService = require('../services/payment.service');
+    const { paymentId, transactionId } = req.body;
+    const payment = await paymentService.verifyAndProcessPayment(paymentId, {
+      transactionId,
+      success: true,
+    });
+    const current = await membershipService.getCurrentMembership(req.user.id);
+    return sendSuccess(res, {
+      statusCode: 200,
+      message: 'Membership payment verified and activated successfully',
+      data: { payment, ...current },
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
 module.exports = {
   getCurrentMembership,
   purchaseMembership,
+  verifyPayment,
   getHistory,
   listAdminMemberships,
   listPaidMembers,

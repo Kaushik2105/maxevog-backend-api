@@ -17,6 +17,7 @@ router.get('/:id/eligibility', authenticate, jobController.checkJobEligibility);
 router.get('/:id', jobController.getJobDetails);
 
 // Admin routes (mounted on /api/v1/jobs and /api/v1/admin/jobs)
+router.get('/admin/all', authenticate, requireAdmin, jobController.listAdminJobs);
 router.post(
   '/',
   authenticate,

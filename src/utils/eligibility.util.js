@@ -104,11 +104,22 @@ function evaluateEligibility(profile, job) {
   }
 
   // 3. Degree & Branch Requirements Check (from eligibleDegrees / eligibleBranches or legacy degreeRequirements)
-  const candidateDegree = (profile.degree || profile.qualification || '').toLowerCase();
-  const candidateBranch = (profile.branch || '').toLowerCase();
+  const candidateDegree = (profile.degree || profile.qualification || '').trim().toLowerCase();
+  const candidateBranch = (profile.branch || '').trim().toLowerCase();
 
-  const eligibleDegrees = Array.isArray(job.eligibleDegrees) ? job.eligibleDegrees : [];
-  const eligibleBranches = Array.isArray(job.eligibleBranches) ? job.eligibleBranches : [];
+  let eligibleDegrees = [];
+  if (Array.isArray(job.eligibleDegrees)) {
+    eligibleDegrees = job.eligibleDegrees;
+  } else if (typeof job.eligibleDegrees === 'string') {
+    try { eligibleDegrees = JSON.parse(job.eligibleDegrees); } catch (e) { eligibleDegrees = []; }
+  }
+
+  let eligibleBranches = [];
+  if (Array.isArray(job.eligibleBranches)) {
+    eligibleBranches = job.eligibleBranches;
+  } else if (typeof job.eligibleBranches === 'string') {
+    try { eligibleBranches = JSON.parse(job.eligibleBranches); } catch (e) { eligibleBranches = []; }
+  }
 
   if (eligibleDegrees.length > 0) {
     const isAnyDegreeOpen = eligibleDegrees.some((d) => {
@@ -133,15 +144,12 @@ function evaluateEligibility(profile, job) {
     }
 
     let branchMatched = false;
-    if (
-      eligibleBranches.length === 0 ||
-      eligibleBranches.some(
-        (b) =>
-          b.toLowerCase().includes('any') ||
-          b.toLowerCase().includes('all') ||
-          b.toLowerCase().includes('general')
-      )
-    ) {
+    const isAnyBranchOpen = eligibleBranches.length === 0 || eligibleBranches.some((b) => {
+      const lower = b.toLowerCase();
+      return lower.includes('any') || lower.includes('all') || lower.includes('general');
+    });
+
+    if (isAnyBranchOpen) {
       branchMatched = true;
     } else if (candidateBranch) {
       branchMatched = eligibleBranches.some((b) => {
@@ -150,52 +158,42 @@ function evaluateEligibility(profile, job) {
       });
     }
 
+    // User's Deterministic Decision Rules:
+    // 1. Both degree & branch match -> Likely Eligible
+    // 2. Only one matches (or one is missing) -> May Be Eligible / Needs Review
+    // 3. Neither matches -> Likely Not Eligible
     if (degreeMatched && branchMatched) {
-      clearMatches++;
-      reasons.push(
-        `Degree & Branch (${profile.degree || profile.qualification || ''}${profile.branch ? ` - ${profile.branch}` : ''}) match recruitment criteria.`
-      );
+      reasons.push(`Degree & Specialization match advertised recruitment criteria.`);
+      return {
+        status: ELIGIBILITY_STATUSES.LIKELY_ELIGIBLE,
+        score: 90,
+        reasons,
+      };
     } else if (degreeMatched && !branchMatched) {
-      uncertainMatches++;
-      reasons.push(
-        `Degree matches, but branch (${profile.branch || 'General'}) may require equivalence verification.`
-      );
+      reasons.push(`Degree matches, but branch specialization (${profile.branch || 'Not Specified'}) requires review against advertised branches.`);
+      return {
+        status: ELIGIBILITY_STATUSES.MAY_BE_ELIGIBLE,
+        score: 60,
+        reasons,
+      };
+    } else if (!degreeMatched && branchMatched) {
+      reasons.push(`Specialization matches, but degree (${profile.degree || profile.qualification || 'Not Specified'}) requires review against advertised qualifications.`);
+      return {
+        status: ELIGIBILITY_STATUSES.MAY_BE_ELIGIBLE,
+        score: 60,
+        reasons,
+      };
     } else {
-      definiteDisqualification = true;
-      reasons.push(
-        `Degree (${profile.degree || profile.qualification || 'None specified'}) does not match eligible qualifications.`
-      );
-    }
-  } else if (job.degreeRequirements && profile.degree) {
-    const reqDegrees = job.degreeRequirements.toLowerCase().split(',').map((d) => d.trim());
-
-    const isOpenToAnyGraduate = reqDegrees.some((d) =>
-      d.includes('any') || d.includes('all') || d.includes('any graduate') || d.includes('any discipline')
-    );
-
-    const matchesDegree =
-      isOpenToAnyGraduate ||
-      reqDegrees.some(
-        (d) =>
-          candidateDegree.includes(d) ||
-          d.includes(candidateDegree) ||
-          (candidateBranch && (d.includes(candidateBranch) || candidateBranch.includes(d)))
-      );
-
-    if (matchesDegree) {
-      clearMatches++;
-      reasons.push(
-        `Degree (${profile.degree}${profile.branch ? ` - ${profile.branch}` : ''}) aligns with recruitment requirements.`
-      );
-    } else {
-      uncertainMatches++;
-      reasons.push(
-        `Degree (${profile.degree}) may require equivalency verification against: ${job.degreeRequirements}.`
-      );
+      reasons.push(`Neither candidate degree nor branch matches the advertised criteria.`);
+      return {
+        status: ELIGIBILITY_STATUSES.LIKELY_NOT_ELIGIBLE,
+        score: 20,
+        reasons,
+      };
     }
   }
 
-  // Determine overall status
+  // Fallback: If job has no specific eligibleDegrees configured
   if (definiteDisqualification) {
     return {
       status: ELIGIBILITY_STATUSES.LIKELY_NOT_ELIGIBLE,
@@ -204,10 +202,10 @@ function evaluateEligibility(profile, job) {
     };
   }
 
-  if (clearMatches >= 2 && uncertainMatches === 0) {
+  if (clearMatches >= 1 && uncertainMatches === 0) {
     return {
       status: ELIGIBILITY_STATUSES.LIKELY_ELIGIBLE,
-      score: 90,
+      score: 85,
       reasons,
     };
   }

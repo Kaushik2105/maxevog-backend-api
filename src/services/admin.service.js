@@ -12,9 +12,10 @@ const {
   Membership,
   Payment,
   Feedback,
+  Job,
   sequelize,
 } = require('../models');
-const { APPLICATION_STATUSES } = require('../constants/application.constant');
+const { APPLICATION_STATUSES, JOB_STATUSES } = require('../constants/application.constant');
 const { ASSISTANCE_STATUSES } = require('../constants/assistance.constant');
 const { MEMBERSHIP_STATUSES } = require('../constants/membership.constant');
 const { AUDIT_ACTIONS } = require('../constants/audit.constant');
@@ -37,17 +38,23 @@ async function getDashboardOverview() {
 
   const todayStr = startOfToday.toISOString().split('T')[0];
 
-  // User metrics
-  const totalUsers = await User.count({ where: { role: 'USER' } });
+  // User metrics - count registered candidate accounts (non-admin)
+  const totalUsers = await User.count({ where: { role: { [Op.ne]: 'ADMIN' } } });
   const newUsersToday = await User.count({
-    where: { role: 'USER', createdAt: { [Op.gte]: startOfToday } },
+    where: { role: { [Op.ne]: 'ADMIN' }, createdAt: { [Op.gte]: startOfToday } },
   });
   const newUsersThisWeek = await User.count({
-    where: { role: 'USER', createdAt: { [Op.gte]: startOfWeek } },
+    where: { role: { [Op.ne]: 'ADMIN' }, createdAt: { [Op.gte]: startOfWeek } },
   });
   const newUsersThisMonth = await User.count({
-    where: { role: 'USER', createdAt: { [Op.gte]: startOfMonth } },
+    where: { role: { [Op.ne]: 'ADMIN' }, createdAt: { [Op.gte]: startOfMonth } },
   });
+
+  // Active jobs / recruitment openings
+  const activeJobs = await Job.count({
+    where: { isPublished: true, status: JOB_STATUSES.PUBLISHED },
+  });
+  const totalJobs = await Job.count();
 
   // Membership metrics
   const totalMemberships = await Membership.count();
@@ -108,11 +115,25 @@ async function getDashboardOverview() {
   });
 
   return {
+    totalUsers,
+    newUsersToday,
+    newUsersThisWeek,
+    newUsersThisMonth,
+    activeJobs,
+    totalJobs,
+    totalApplications,
+    totalAssistanceSessions: totalAssistanceRequests,
+    totalRevenue,
+    activePaidMembers,
     users: {
       total: totalUsers,
       newToday: newUsersToday,
       newThisWeek: newUsersThisWeek,
       newThisMonth: newUsersThisMonth,
+    },
+    jobs: {
+      active: activeJobs,
+      total: totalJobs,
     },
     memberships: {
       total: totalMemberships,

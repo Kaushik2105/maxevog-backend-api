@@ -10,6 +10,8 @@ const { requireAdmin } = require('../middleware/admin.middleware');
 const { validate } = require('../middleware/validation.middleware');
 const { createAgentValidator } = require('../validators/admin.validator');
 
+const jobController = require('../controllers/job.controller');
+
 // Apply admin authentication to all routes
 router.use(authenticate, requireAdmin);
 
@@ -32,6 +34,9 @@ router.get('/financials', adminController.getFinancialsOverview);
 // Desk Agents Workload Directory & Agent Management
 router.get('/agents', adminController.listAgents);
 router.post('/agents', createAgentValidator, validate, adminController.createAgent);
+
+// Recruitment Jobs Management (all statuses)
+router.get('/jobs', jobController.listAdminJobs);
 
 // System Audit Logs
 router.get('/audit-logs', adminController.listAuditLogs);

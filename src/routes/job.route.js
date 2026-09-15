@@ -7,7 +7,7 @@ const jobController = require('../controllers/job.controller');
 const { createJobValidator, updateJobValidator } = require('../validators/job.validator');
 const { validate } = require('../middleware/validation.middleware');
 const { authenticate } = require('../middleware/auth.middleware');
-const { requireAdmin } = require('../middleware/admin.middleware');
+const { requireAdmin, requireAgentOrAdmin } = require('../middleware/admin.middleware');
 const { uploadSingle } = require('../middleware/upload.middleware');
 
 // Public routes
@@ -16,12 +16,12 @@ router.get('/eligible/me', authenticate, jobController.getEligibleJobs);
 router.get('/:id/eligibility', authenticate, jobController.checkJobEligibility);
 router.get('/:id', jobController.getJobDetails);
 
-// Admin routes (mounted on /api/v1/jobs and /api/v1/admin/jobs)
-router.get('/admin/all', authenticate, requireAdmin, jobController.listAdminJobs);
+// Admin & Specialist routes (mounted on /api/v1/jobs and /api/v1/admin/jobs)
+router.get('/admin/all', authenticate, requireAgentOrAdmin, jobController.listAdminJobs);
 router.post(
   '/',
   authenticate,
-  requireAdmin,
+  requireAgentOrAdmin,
   uploadSingle('attachment'),
   createJobValidator,
   validate,
@@ -31,15 +31,15 @@ router.post(
 router.put(
   '/:id',
   authenticate,
-  requireAdmin,
+  requireAgentOrAdmin,
   uploadSingle('attachment'),
   updateJobValidator,
   validate,
   jobController.updateJob
 );
 
-router.patch('/:id/publish', authenticate, requireAdmin, jobController.publishJob);
-router.patch('/:id/archive', authenticate, requireAdmin, jobController.archiveJob);
-router.delete('/:id', authenticate, requireAdmin, jobController.deleteJob);
+router.patch('/:id/publish', authenticate, requireAgentOrAdmin, jobController.publishJob);
+router.patch('/:id/archive', authenticate, requireAgentOrAdmin, jobController.archiveJob);
+router.delete('/:id', authenticate, requireAgentOrAdmin, jobController.deleteJob);
 
 module.exports = router;

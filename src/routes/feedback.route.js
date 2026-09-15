@@ -16,7 +16,22 @@ router.post('/', optionalAuthenticate, submitFeedbackValidator, validate, feedba
 router.get('/my', authenticate, feedbackController.getUserFeedbacks);
 
 // Admin routes
+router.get('/', authenticate, requireAdmin, feedbackController.listAdminFeedbacks);
 router.get('/admin/list', authenticate, requireAdmin, feedbackController.listAdminFeedbacks);
+router.patch(
+  '/:id/resolve',
+  authenticate,
+  requireAdmin,
+  feedbackController.respondToFeedback
+);
+router.patch(
+  '/:id',
+  authenticate,
+  requireAdmin,
+  respondFeedbackValidator,
+  validate,
+  feedbackController.respondToFeedback
+);
 router.patch(
   '/admin/:id',
   authenticate,

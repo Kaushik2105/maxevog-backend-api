@@ -272,7 +272,12 @@ async function updateUserStatus(userId, status, actor) {
     throw new AppError('Cannot alter status of current admin session', 400);
   }
 
-  user.status = status;
+  const normalizedStatus = (status || '').toUpperCase();
+  if (!['ACTIVE', 'SUSPENDED'].includes(normalizedStatus)) {
+    throw new AppError('Invalid status. Must be ACTIVE or SUSPENDED', 400);
+  }
+
+  user.status = normalizedStatus;
   await user.save();
 
   await logAction({
@@ -281,7 +286,7 @@ async function updateUserStatus(userId, status, actor) {
     action: AUDIT_ACTIONS.USER_STATUS_UPDATED,
     entityType: 'User',
     entityId: user.id,
-    metadata: { status },
+    metadata: { status: normalizedStatus },
   });
 
   return user.toJSON();

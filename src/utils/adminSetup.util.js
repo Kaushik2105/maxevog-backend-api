@@ -65,17 +65,48 @@ async function ensureAdminAccount() {
         await admin.save();
       }
 
-      // Ensure Profile exists
-      await Profile.findOrCreate({
+      // Ensure Profile exists and has ADMIN position
+      const [adminProfile] = await Profile.findOrCreate({
         where: { userId: admin.id },
         defaults: {
           userId: admin.id,
           fullName: 'Master Administrator',
+          position: 'ADMIN',
           email: adminEmail,
           category: 'GENERAL',
           profileCompletionPercentage: 100,
         },
       });
+
+      if (adminProfile && adminProfile.position !== 'ADMIN') {
+        adminProfile.position = 'ADMIN';
+        await adminProfile.save();
+      }
+    }
+
+    // Align existing user profile positions according to their roles
+    try {
+      const adminUsers = await User.findAll({ where: { role: ROLES.ADMIN } });
+      for (const u of adminUsers) {
+        await Profile.update({ position: 'ADMIN' }, { where: { userId: u.id, position: 'CANDIDATE' } });
+      }
+
+      const agentUsers = await User.findAll({ where: { role: ROLES.AGENT } });
+      for (const a of agentUsers) {
+        await Profile.update({ position: 'AGENT' }, { where: { userId: a.id, position: 'CANDIDATE' } });
+      }
+
+      const candidateUsers = await User.findAll({ where: { role: ROLES.USER } });
+      for (const c of candidateUsers) {
+        await Profile.update({ position: 'CANDIDATE' }, { where: { userId: c.id, position: ['ADMIN', 'AGENT'] } });
+      }
+
+      // Ensure any existing results and admit cards are published
+      const { Result, AdmitCard } = require('../models');
+      await Result.update({ isPublished: true }, { where: { isPublished: false } });
+      await AdmitCard.update({ isPublished: true }, { where: { isPublished: false } });
+    } catch (alignErr) {
+      logger.warn('Role-position synchronization skipped:', { message: alignErr.message });
     }
 
     return admin;

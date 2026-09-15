@@ -53,7 +53,7 @@ async function requestAssistance({ userId, jobId, preferredSlotId, notes = '' })
   }
 
   const officialFee = job.applicationFee || 0;
-  const serviceFee = envConfig.business.defaultAssistanceFee || 50;
+  const serviceFee = envConfig.business.defaultAssistanceFee || 69;
   const totalAmount = officialFee + serviceFee;
 
   return sequelize.transaction(async (t) => {

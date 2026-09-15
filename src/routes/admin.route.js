@@ -38,6 +38,13 @@ router.post('/agents', createAgentValidator, validate, adminController.createAge
 // Recruitment Jobs Management (all statuses)
 router.get('/jobs', jobController.listAdminJobs);
 
+const feedbackController = require('../controllers/feedback.controller');
+
+// Grievance Desk Feedback Submissions
+router.get('/feedback', feedbackController.listAdminFeedbacks);
+router.patch('/feedback/:id/resolve', feedbackController.respondToFeedback);
+router.patch('/feedback/:id', feedbackController.respondToFeedback);
+
 // System Audit Logs
 router.get('/audit-logs', adminController.listAuditLogs);
 

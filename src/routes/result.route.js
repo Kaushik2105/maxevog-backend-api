@@ -7,18 +7,18 @@ const resultController = require('../controllers/result.controller');
 const { createResultValidator, updateResultValidator } = require('../validators/result.validator');
 const { validate } = require('../middleware/validation.middleware');
 const { authenticate } = require('../middleware/auth.middleware');
-const { requireAdmin } = require('../middleware/admin.middleware');
+const { requireAdmin, requireAgentOrAdmin } = require('../middleware/admin.middleware');
 const { uploadSingle } = require('../middleware/upload.middleware');
 
 // Public routes
 router.get('/', resultController.listResults);
 router.get('/:id', resultController.getResult);
 
-// Admin routes
+// Admin & Specialist routes
 router.post(
   '/',
   authenticate,
-  requireAdmin,
+  requireAgentOrAdmin,
   uploadSingle('attachment'),
   createResultValidator,
   validate,
@@ -28,14 +28,14 @@ router.post(
 router.put(
   '/:id',
   authenticate,
-  requireAdmin,
+  requireAgentOrAdmin,
   uploadSingle('attachment'),
   updateResultValidator,
   validate,
   resultController.updateResult
 );
 
-router.patch('/:id/publish', authenticate, requireAdmin, resultController.publishResult);
-router.delete('/:id', authenticate, requireAdmin, resultController.deleteResult);
+router.patch('/:id/publish', authenticate, requireAgentOrAdmin, resultController.publishResult);
+router.delete('/:id', authenticate, requireAgentOrAdmin, resultController.deleteResult);
 
 module.exports = router;

@@ -5,7 +5,9 @@
 const { verifyToken } = require('../utils/jwt.util');
 const { sendError } = require('../utils/response.util');
 
-function authenticate(req, res, next) {
+const { User } = require('../models');
+
+async function authenticate(req, res, next) {
   const authHeader = req.headers.authorization;
 
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -19,8 +21,34 @@ function authenticate(req, res, next) {
 
   try {
     const decoded = verifyToken(token);
-    // Attach decoded user payload (id, email, role)
-    req.user = decoded;
+    
+    // Live verification of account status in database
+    const user = await User.findByPk(decoded.id, {
+      attributes: ['id', 'email', 'role', 'status'],
+    });
+
+    if (!user) {
+      return sendError(res, {
+        statusCode: 401,
+        message: 'Account not found or no longer active',
+      });
+    }
+
+    if (String(user.status).toUpperCase() === 'SUSPENDED') {
+      return sendError(res, {
+        statusCode: 403,
+        message: 'Your account has been suspended by administration. Access revoked.',
+        data: { isSuspended: true },
+      });
+    }
+
+    // Attach verified user payload
+    req.user = {
+      id: user.id,
+      email: user.email,
+      role: user.role,
+      status: user.status,
+    };
     next();
   } catch (error) {
     return sendError(res, {
@@ -34,12 +62,23 @@ function authenticate(req, res, next) {
  * Optional Authentication
  * Attaches user if token is present and valid, but doesn't block unauthenticated requests.
  */
-function optionalAuthenticate(req, res, next) {
+async function optionalAuthenticate(req, res, next) {
   const authHeader = req.headers.authorization;
   if (authHeader && authHeader.startsWith('Bearer ')) {
     const token = authHeader.split(' ')[1];
     try {
-      req.user = verifyToken(token);
+      const decoded = verifyToken(token);
+      const user = await User.findByPk(decoded.id, {
+        attributes: ['id', 'email', 'role', 'status'],
+      });
+      if (user && String(user.status).toUpperCase() !== 'SUSPENDED') {
+        req.user = {
+          id: user.id,
+          email: user.email,
+          role: user.role,
+          status: user.status,
+        };
+      }
     } catch {
       // Ignored for optional auth
     }

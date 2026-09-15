@@ -10,18 +10,18 @@ const {
 } = require('../validators/admitCard.validator');
 const { validate } = require('../middleware/validation.middleware');
 const { authenticate } = require('../middleware/auth.middleware');
-const { requireAdmin } = require('../middleware/admin.middleware');
+const { requireAdmin, requireAgentOrAdmin } = require('../middleware/admin.middleware');
 const { uploadSingle } = require('../middleware/upload.middleware');
 
 // Public routes
 router.get('/', admitCardController.listAdmitCards);
 router.get('/:id', admitCardController.getAdmitCard);
 
-// Admin routes
+// Admin & Specialist routes
 router.post(
   '/',
   authenticate,
-  requireAdmin,
+  requireAgentOrAdmin,
   uploadSingle('attachment'),
   createAdmitCardValidator,
   validate,
@@ -31,14 +31,14 @@ router.post(
 router.put(
   '/:id',
   authenticate,
-  requireAdmin,
+  requireAgentOrAdmin,
   uploadSingle('attachment'),
   updateAdmitCardValidator,
   validate,
   admitCardController.updateAdmitCard
 );
 
-router.patch('/:id/publish', authenticate, requireAdmin, admitCardController.publishAdmitCard);
-router.delete('/:id', authenticate, requireAdmin, admitCardController.deleteAdmitCard);
+router.patch('/:id/publish', authenticate, requireAgentOrAdmin, admitCardController.publishAdmitCard);
+router.delete('/:id', authenticate, requireAgentOrAdmin, admitCardController.deleteAdmitCard);
 
 module.exports = router;

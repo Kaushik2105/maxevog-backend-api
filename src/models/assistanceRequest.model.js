@@ -40,7 +40,7 @@ const AssistanceRequest = sequelize.define(
     },
     serviceFee: {
       type: DataTypes.FLOAT,
-      defaultValue: 50.0,
+      defaultValue: 69.0,
       allowNull: false,
     },
     officialFee: {

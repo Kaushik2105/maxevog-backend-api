@@ -23,7 +23,7 @@ const Membership = sequelize.define(
     },
     planId: {
       type: DataTypes.STRING,
-      defaultValue: 'QUARTERLY_99',
+      defaultValue: 'QUARTERLY_249',
       allowNull: false,
     },
     planName: {
@@ -33,7 +33,7 @@ const Membership = sequelize.define(
     },
     amount: {
       type: DataTypes.FLOAT,
-      defaultValue: 99.0,
+      defaultValue: 249.0,
       allowNull: false,
     },
     startDate: {

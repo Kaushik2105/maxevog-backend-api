@@ -9,6 +9,16 @@ const { uploadDocument } = require('./upload.service');
 const { logAction } = require('./audit.service');
 const { AppError } = require('../middleware/error.middleware');
 
+function formatAdmitCard(card) {
+  if (!card) return null;
+  const json = typeof card.toJSON === 'function' ? card.toJSON() : { ...card };
+  return {
+    ...json,
+    releaseDate: json.availabilityDate || json.releaseDate || null,
+    downloadUrl: json.officialAdmitCardUrl || json.attachmentUrl || json.downloadUrl || null,
+  };
+}
+
 /**
  * List public admit cards
  */
@@ -28,7 +38,7 @@ async function listAdmitCards(query = {}) {
     offset,
   });
 
-  return { admitCards: rows, meta: buildPaginationMeta({ count, page, limit }) };
+  return { admitCards: rows.map(formatAdmitCard), meta: buildPaginationMeta({ count, page, limit }) };
 }
 
 /**
@@ -43,7 +53,7 @@ async function getAdmitCardById(id) {
     throw new AppError('Admit card not found', 404);
   }
 
-  return admitCard;
+  return formatAdmitCard(admitCard);
 }
 
 /**
@@ -69,7 +79,7 @@ async function listAdminAdmitCards(query = {}) {
     offset,
   });
 
-  return { admitCards: rows, meta: buildPaginationMeta({ count, page, limit }) };
+  return { admitCards: rows.map(formatAdmitCard), meta: buildPaginationMeta({ count, page, limit }) };
 }
 
 /**
@@ -81,10 +91,17 @@ async function createAdmitCard(data, attachmentBuffer, actor) {
     attachmentUrl = await uploadDocument(attachmentBuffer, 'admit_cards', 'admit_card');
   }
 
-  const admitCard = await AdmitCard.create({
+  const payload = {
     ...data,
-    attachmentUrl: attachmentUrl || data.attachmentUrl,
-  });
+    availabilityDate: data.availabilityDate || data.releaseDate || null,
+    examDate: data.examDate || null,
+    officialAdmitCardUrl: data.officialAdmitCardUrl || data.downloadUrl || null,
+    attachmentUrl: attachmentUrl || data.attachmentUrl || data.downloadUrl || null,
+    status: data.status || 'AVAILABLE',
+    isPublished: data.isPublished !== undefined ? Boolean(data.isPublished) : true,
+  };
+
+  const admitCard = await AdmitCard.create(payload);
 
   await logAction({
     actorId: actor ? actor.id : null,
@@ -95,7 +112,7 @@ async function createAdmitCard(data, attachmentBuffer, actor) {
     metadata: { title: admitCard.title, jobId: admitCard.jobId },
   });
 
-  return admitCard;
+  return formatAdmitCard(admitCard);
 }
 
 /**
@@ -109,15 +126,20 @@ async function updateAdmitCard(id, data, attachmentBuffer, actor) {
 
   let attachmentUrl = admitCard.attachmentUrl;
   if (attachmentBuffer) {
-    attachmentUrl = await uploadDocument(attachmentBuffer, 'admit_cards', `admit_${id}`);
+    attachmentUrl = await uploadDocument(attachmentBuffer, 'admit_cards', `admit_card_${id}`);
   }
 
-  await admitCard.update({
+  const payload = {
     ...data,
-    attachmentUrl,
-  });
+    ...(data.availabilityDate || data.releaseDate ? { availabilityDate: data.availabilityDate || data.releaseDate } : {}),
+    ...(data.examDate ? { examDate: data.examDate } : {}),
+    ...(data.officialAdmitCardUrl || data.downloadUrl ? { officialAdmitCardUrl: data.officialAdmitCardUrl || data.downloadUrl } : {}),
+    attachmentUrl: attachmentUrl || (data.downloadUrl ? data.downloadUrl : admitCard.attachmentUrl),
+  };
 
-  return admitCard;
+  await admitCard.update(payload);
+
+  return formatAdmitCard(admitCard);
 }
 
 /**

@@ -9,6 +9,17 @@ const { uploadDocument } = require('./upload.service');
 const { logAction } = require('./audit.service');
 const { AppError } = require('../middleware/error.middleware');
 
+function formatResult(r) {
+  if (!r) return null;
+  const json = typeof r.toJSON === 'function' ? r.toJSON() : { ...r };
+  return {
+    ...json,
+    declaredDate: json.resultDate || json.declaredDate || null,
+    cutoffMarks: json.cutoffInfo || json.cutoffMarks || null,
+    pdfUrl: json.officialResultUrl || json.attachmentUrl || json.pdfUrl || null,
+  };
+}
+
 /**
  * List public results
  */
@@ -28,7 +39,7 @@ async function listResults(query = {}) {
     offset,
   });
 
-  return { results: rows, meta: buildPaginationMeta({ count, page, limit }) };
+  return { results: rows.map(formatResult), meta: buildPaginationMeta({ count, page, limit }) };
 }
 
 /**
@@ -43,7 +54,7 @@ async function getResultById(id) {
     throw new AppError('Result not found', 404);
   }
 
-  return result;
+  return formatResult(result);
 }
 
 /**
@@ -69,7 +80,7 @@ async function listAdminResults(query = {}) {
     offset,
   });
 
-  return { results: rows, meta: buildPaginationMeta({ count, page, limit }) };
+  return { results: rows.map(formatResult), meta: buildPaginationMeta({ count, page, limit }) };
 }
 
 /**
@@ -81,10 +92,17 @@ async function createResult(data, attachmentBuffer, actor) {
     attachmentUrl = await uploadDocument(attachmentBuffer, 'results', 'result');
   }
 
-  const result = await Result.create({
+  const payload = {
     ...data,
-    attachmentUrl: attachmentUrl || data.attachmentUrl,
-  });
+    resultDate: data.resultDate || data.declaredDate || null,
+    cutoffInfo: data.cutoffInfo || data.cutoffMarks || null,
+    officialResultUrl: data.officialResultUrl || data.pdfUrl || null,
+    attachmentUrl: attachmentUrl || data.attachmentUrl || data.pdfUrl || null,
+    resultType: data.resultType || 'Merit List',
+    isPublished: data.isPublished !== undefined ? Boolean(data.isPublished) : true,
+  };
+
+  const result = await Result.create(payload);
 
   await logAction({
     actorId: actor ? actor.id : null,
@@ -95,7 +113,7 @@ async function createResult(data, attachmentBuffer, actor) {
     metadata: { title: result.title, jobId: result.jobId },
   });
 
-  return result;
+  return formatResult(result);
 }
 
 /**
@@ -112,12 +130,17 @@ async function updateResult(id, data, attachmentBuffer, actor) {
     attachmentUrl = await uploadDocument(attachmentBuffer, 'results', `result_${id}`);
   }
 
-  await result.update({
+  const payload = {
     ...data,
-    attachmentUrl,
-  });
+    ...(data.resultDate || data.declaredDate ? { resultDate: data.resultDate || data.declaredDate } : {}),
+    ...(data.cutoffInfo || data.cutoffMarks ? { cutoffInfo: data.cutoffInfo || data.cutoffMarks } : {}),
+    ...(data.officialResultUrl || data.pdfUrl ? { officialResultUrl: data.officialResultUrl || data.pdfUrl } : {}),
+    attachmentUrl: attachmentUrl || (data.pdfUrl ? data.pdfUrl : result.attachmentUrl),
+  };
 
-  return result;
+  await result.update(payload);
+
+  return formatResult(result);
 }
 
 /**

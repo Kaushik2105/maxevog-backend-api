@@ -42,7 +42,7 @@ async function getCurrentMembership(userId) {
 /**
  * Purchase or initiate membership purchase
  */
-async function purchaseMembership(userId, planId = 'QUARTERLY_99') {
+async function purchaseMembership(userId, planId = 'QUARTERLY_249') {
   let selectedPlan = MEMBERSHIP_PLANS.QUARTERLY;
   if (planId === MEMBERSHIP_PLANS.YEARLY.id) {
     selectedPlan = MEMBERSHIP_PLANS.YEARLY;

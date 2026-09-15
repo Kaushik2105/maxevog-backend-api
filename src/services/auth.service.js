@@ -132,6 +132,10 @@ async function googleAuth({ credential, email, fullName, avatarUrl, googleId }) 
     ],
   });
 
+  if (user && String(user.status).toUpperCase() === 'SUSPENDED') {
+    throw new AppError('Your account has been suspended. Please contact platform support.', 403);
+  }
+
   if (!user) {
     const randomPassword = await hashPassword(crypto.randomBytes(32).toString('hex'));
 

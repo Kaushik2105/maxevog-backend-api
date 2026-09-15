@@ -52,8 +52,8 @@ const envConfig = Object.freeze({
     telegramBotToken: process.env.TELEGRAM_BOT_TOKEN || '',
   },
   business: {
-    defaultAssistanceFee: parseFloat(process.env.DEFAULT_ASSISTANCE_FEE) || 50,
-    defaultMembershipFee: parseFloat(process.env.DEFAULT_MEMBERSHIP_FEE) || 99,
+    defaultAssistanceFee: parseFloat(process.env.DEFAULT_ASSISTANCE_FEE) || 69,
+    defaultMembershipFee: parseFloat(process.env.DEFAULT_MEMBERSHIP_FEE) || 209,
   },
 });
 

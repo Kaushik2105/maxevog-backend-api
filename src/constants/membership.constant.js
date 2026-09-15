@@ -12,16 +12,16 @@ const ALL_MEMBERSHIP_STATUSES = Object.freeze(Object.values(MEMBERSHIP_STATUSES)
 
 const MEMBERSHIP_PLANS = Object.freeze({
   QUARTERLY: {
-    id: 'QUARTERLY_99',
+    id: 'QUARTERLY_249',
     name: 'Quarterly Plan',
     durationMonths: 3,
-    price: 99,
+    price: 249,
   },
   YEARLY: {
-    id: 'YEARLY_349',
+    id: 'YEARLY_499',
     name: 'Yearly Plan',
     durationMonths: 12,
-    price: 349,
+    price: 499,
   },
 });
 

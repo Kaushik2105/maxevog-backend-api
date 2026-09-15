@@ -18,6 +18,7 @@ const { PAYMENT_TYPES } = require('../constants/payment.constant');
 const { AUDIT_ACTIONS } = require('../constants/audit.constant');
 const { reserveSlot } = require('./timeSlot.service');
 const { createPayment } = require('./payment.service');
+const { getCurrentMembership } = require('./membership.service');
 const { logAction } = require('./audit.service');
 const { getPaginationParams, buildPaginationMeta } = require('../utils/pagination.util');
 const envConfig = require('../config/env.config');
@@ -52,14 +53,20 @@ async function requestAssistance({ userId, jobId, preferredSlotId, notes = '' })
     throw new AppError('You already have an active assistance request for this recruitment', 400);
   }
 
+  const { hasActiveMembership: isPro } = await getCurrentMembership(userId);
   const officialFee = job.applicationFee || 0;
-  const serviceFee = envConfig.business.defaultAssistanceFee || 69;
-  const totalAmount = officialFee + serviceFee;
+  const serviceFee = isPro ? 0 : (envConfig.business.defaultAssistanceFee || 69);
+  // Only charge the platform desk service fee (69 or 0 for Pro).
+  // Official board application fee is paid directly by candidate on the govt portal during session.
+  const totalAmount = serviceFee;
 
   return sequelize.transaction(async (t) => {
     // 1. Reserve selected slot
     const slot = await reserveSlot(preferredSlotId, t);
     const scheduledDateTime = new Date(`${slot.date}T${slot.startTime}:00`);
+
+    const initialStatus = totalAmount === 0 ? ASSISTANCE_STATUSES.SCHEDULED : ASSISTANCE_STATUSES.PAYMENT_PENDING;
+    const initialAppStatus = totalAmount === 0 ? APPLICATION_STATUSES.PROCESSING : APPLICATION_STATUSES.PAYMENT_PENDING;
 
     // 2. Create assistance request record
     const assistanceRequest = await AssistanceRequest.create(
@@ -71,7 +78,7 @@ async function requestAssistance({ userId, jobId, preferredSlotId, notes = '' })
         serviceFee,
         totalAmount,
         notes,
-        status: ASSISTANCE_STATUSES.PAYMENT_PENDING,
+        status: initialStatus,
         scheduledAt: scheduledDateTime,
       },
       { transaction: t }
@@ -83,7 +90,7 @@ async function requestAssistance({ userId, jobId, preferredSlotId, notes = '' })
         userId,
         jobId,
         assistanceRequestId: assistanceRequest.id,
-        status: APPLICATION_STATUSES.PAYMENT_PENDING,
+        status: initialAppStatus,
       },
       { transaction: t }
     );
@@ -91,7 +98,7 @@ async function requestAssistance({ userId, jobId, preferredSlotId, notes = '' })
     assistanceRequest.applicationId = application.id;
     await assistanceRequest.save({ transaction: t });
 
-    // 4. Create pending payment record
+    // 4. Create payment record
     const payment = await createPayment({
       userId,
       paymentType: PAYMENT_TYPES.ASSISTANCE,
@@ -101,6 +108,11 @@ async function requestAssistance({ userId, jobId, preferredSlotId, notes = '' })
       applicationId: application.id,
       assistanceRequestId: assistanceRequest.id,
     });
+
+    if (totalAmount === 0) {
+      payment.status = 'SUCCESS';
+      await payment.save();
+    }
 
     return {
       assistanceRequest,

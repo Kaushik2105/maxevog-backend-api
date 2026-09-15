@@ -10,8 +10,17 @@ const { authenticate } = require('../middleware/auth.middleware');
 const { requireAdmin, requireAgentOrAdmin } = require('../middleware/admin.middleware');
 const { uploadSingle } = require('../middleware/upload.middleware');
 
-// Public routes
-router.get('/', jobController.listPublicJobs);
+// Public & Admin listing routes
+router.get('/', (req, res, next) => {
+  if (req.baseUrl && req.baseUrl.includes('/admin/jobs')) {
+    return authenticate(req, res, () => {
+      return requireAgentOrAdmin(req, res, () => {
+        return jobController.listAdminJobs(req, res, next);
+      });
+    });
+  }
+  return jobController.listPublicJobs(req, res, next);
+});
 router.get('/eligible/me', authenticate, jobController.getEligibleJobs);
 router.get('/:id/eligibility', authenticate, jobController.checkJobEligibility);
 router.get('/:id', jobController.getJobDetails);

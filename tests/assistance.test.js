@@ -65,7 +65,7 @@ describe('Assistance Request Module', () => {
     slotId = slot.id;
   });
 
-  it('should create an assistance request with official fee + ₹50 service fee', async () => {
+  it('should create an assistance request charging only the flat ₹69 service fee', async () => {
     const res = await request(app)
       .post('/api/v1/assistance')
       .set('Authorization', `Bearer ${studentToken}`)
@@ -79,10 +79,10 @@ describe('Assistance Request Module', () => {
     expect(res.body.success).toBe(true);
     expect(res.body.data.assistanceRequest).toBeDefined();
     expect(res.body.data.assistanceRequest.officialFee).toBe(150.0);
-    expect(res.body.data.assistanceRequest.serviceFee).toBe(50.0);
-    expect(res.body.data.assistanceRequest.totalAmount).toBe(200.0); // 150 + 50
+    expect(res.body.data.assistanceRequest.serviceFee).toBe(69.0);
+    expect(res.body.data.assistanceRequest.totalAmount).toBe(69.0); // Only flat 69 service fee charged at booking
     expect(res.body.data.payment).toBeDefined();
-    expect(res.body.data.payment.totalAmount).toBe(200.0);
+    expect(res.body.data.payment.totalAmount).toBe(69.0);
     createdAssistanceId = res.body.data.assistanceRequest.id;
 
     // Verify slot is now booked (capacity depleted)

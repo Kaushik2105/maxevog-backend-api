@@ -33,11 +33,8 @@ router.use('/membership', membershipRoutes);
 router.use('/notifications', notificationRoutes);
 router.use('/feedback', feedbackRoutes);
 router.use('/payments', paymentRoutes);
-router.use('/admin', adminRoutes);
-router.use('/agent', agentRoutes);
-
-// Aliases for admin prefixes explicitly specified in prompt document:
-// e.g. /api/v1/admin/jobs, /api/v1/admin/results, /api/v1/admin/admit-cards, etc.
+// Aliases for admin/specialist prefixes:
+// Must be mounted BEFORE generic /admin so that agent authorization is not blocked by adminRoutes
 router.use('/admin/jobs', jobRoutes);
 router.use('/admin/results', resultRoutes);
 router.use('/admin/admit-cards', admitCardRoutes);
@@ -45,5 +42,8 @@ router.use('/admin/time-slots', timeSlotRoutes);
 router.use('/admin/assistance', assistanceRoutes);
 router.use('/admin/memberships', membershipRoutes);
 router.use('/admin/feedback', feedbackRoutes);
+
+router.use('/admin', adminRoutes);
+router.use('/agent', agentRoutes);
 
 module.exports = router;

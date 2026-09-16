@@ -314,7 +314,7 @@ async function listAllApplications(query = {}) {
     where.status = query.status;
   }
 
-  const { Job, TimeSlot, AuditLog } = require('../models');
+  const { Job, AuditLog } = require('../models');
 
   const { count, rows } = await Application.findAndCountAll({
     where,
@@ -329,7 +329,6 @@ async function listAllApplications(query = {}) {
       {
         model: AssistanceRequest,
         as: 'assistanceRequest',
-        include: [{ model: TimeSlot, as: 'timeSlot' }],
       },
       { model: Payment, as: 'payment' },
       {

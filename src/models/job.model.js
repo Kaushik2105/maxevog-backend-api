@@ -98,7 +98,7 @@ const Job = sequelize.define(
     vacancies: {
       type: DataTypes.INTEGER,
       allowNull: true,
-      defaultValue: 1,
+      defaultValue: null,
     },
     applicationFee: {
       type: DataTypes.FLOAT,

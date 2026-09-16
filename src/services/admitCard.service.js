@@ -103,10 +103,11 @@ async function createAdmitCard(data, attachmentBuffer, actor) {
 
   const admitCard = await AdmitCard.create(payload);
 
+  const isAgent = actor && actor.role === 'AGENT';
   await logAction({
     actorId: actor ? actor.id : null,
     actorRole: actor ? actor.role : 'ADMIN',
-    action: AUDIT_ACTIONS.ADMIN_CREATED_ADMIT_CARD,
+    action: isAgent ? AUDIT_ACTIONS.AGENT_CREATED_ADMIT_CARD : AUDIT_ACTIONS.ADMIN_CREATED_ADMIT_CARD,
     entityType: 'AdmitCard',
     entityId: admitCard.id,
     metadata: { title: admitCard.title, jobId: admitCard.jobId },
@@ -154,10 +155,11 @@ async function setPublishStatus(id, isPublished, actor) {
   admitCard.isPublished = Boolean(isPublished);
   await admitCard.save();
 
+  const isAgent = actor && actor.role === 'AGENT';
   await logAction({
     actorId: actor ? actor.id : null,
     actorRole: actor ? actor.role : 'ADMIN',
-    action: AUDIT_ACTIONS.ADMIN_PUBLISHED_ADMIT_CARD,
+    action: isAgent ? AUDIT_ACTIONS.AGENT_PUBLISHED_ADMIT_CARD : AUDIT_ACTIONS.ADMIN_PUBLISHED_ADMIT_CARD,
     entityType: 'AdmitCard',
     entityId: admitCard.id,
     metadata: { isPublished: admitCard.isPublished },

@@ -33,17 +33,17 @@ describe('Membership Module', () => {
     expect(res.body.data.hasActiveMembership).toBe(false);
   });
 
-  it('should allow student to purchase quarterly membership plan (₹99)', async () => {
+  it('should allow student to purchase quarterly membership plan (₹249)', async () => {
     const res = await request(app)
       .post('/api/v1/membership/purchase')
       .set('Authorization', `Bearer ${userToken}`)
-      .send({ planId: 'QUARTERLY_99' });
+      .send({ planId: 'QUARTERLY_249' });
 
     expect(res.status).toBe(201);
     expect(res.body.success).toBe(true);
-    expect(res.body.data.membership.amount).toBe(99);
+    expect(res.body.data.membership.amount).toBe(249);
     expect(res.body.data.payment).toBeDefined();
-    expect(res.body.data.payment.totalAmount).toBe(99);
+    expect(res.body.data.payment.totalAmount).toBe(249);
     paymentId = res.body.data.payment.id;
   });
 

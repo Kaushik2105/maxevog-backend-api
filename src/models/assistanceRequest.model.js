@@ -19,7 +19,23 @@ const AssistanceRequest = sequelize.define(
     },
     jobId: {
       type: DataTypes.UUID,
-      allowNull: false,
+      allowNull: true,
+    },
+    customExamTitle: {
+      type: DataTypes.STRING,
+      allowNull: true,
+    },
+    bookingDate: {
+      type: DataTypes.DATEONLY,
+      allowNull: true,
+    },
+    isUrgent: {
+      type: DataTypes.BOOLEAN,
+      defaultValue: false,
+    },
+    urgencyReason: {
+      type: DataTypes.TEXT,
+      allowNull: true,
     },
     applicationId: {
       type: DataTypes.UUID,
@@ -41,6 +57,11 @@ const AssistanceRequest = sequelize.define(
     serviceFee: {
       type: DataTypes.FLOAT,
       defaultValue: 69.0,
+      allowNull: false,
+    },
+    priorityFee: {
+      type: DataTypes.FLOAT,
+      defaultValue: 0.0,
       allowNull: false,
     },
     officialFee: {
@@ -103,6 +124,9 @@ const AssistanceRequest = sequelize.define(
       },
       {
         fields: ['scheduledAt'],
+      },
+      {
+        fields: ['bookingDate'],
       },
     ],
   }

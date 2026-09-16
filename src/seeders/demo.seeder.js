@@ -11,7 +11,7 @@ const {
   Job,
   Result,
   AdmitCard,
-  TimeSlot,
+  DailyAssistanceLimit,
   Application,
   AssistanceRequest,
   Payment,
@@ -21,7 +21,7 @@ const {
 const { hashPassword } = require('../utils/password.util');
 const { ROLES } = require('../constants/role.constant');
 const { JOB_STATUSES, APPLICATION_STATUSES } = require('../constants/application.constant');
-const { ASSISTANCE_STATUSES, TIME_SLOT_STATUSES } = require('../constants/assistance.constant');
+const { ASSISTANCE_STATUSES } = require('../constants/assistance.constant');
 const { MEMBERSHIP_STATUSES } = require('../constants/membership.constant');
 const { addDays, addMonths } = require('../utils/date.util');
 
@@ -216,48 +216,37 @@ async function seedDemoData() {
       },
     });
 
-    // 5. Create Available Time Slots for Next 7 Days
-    for (let i = 1; i <= 5; i++) {
-      const slotDate = addDays(today, i).toISOString().split('T')[0];
-      const slotTimes = [
-        { startTime: '10:00', endTime: '11:00' },
-        { startTime: '14:00', endTime: '15:00' },
-        { startTime: '17:00', endTime: '18:00' },
-      ];
-
-      for (const t of slotTimes) {
-        await TimeSlot.findOrCreate({
-          where: { date: slotDate, startTime: t.startTime },
-          defaults: {
-            date: slotDate,
-            startTime: t.startTime,
-            endTime: t.endTime,
-            maxCapacity: 2,
-            availableCapacity: 2,
-            status: TIME_SLOT_STATUSES.AVAILABLE,
-          },
-        });
-      }
+    // 5. Create Daily Desk Capacity Limits for Next 7 Days
+    for (let i = 0; i <= 7; i++) {
+      const limitDate = addDays(today, i).toISOString().split('T')[0];
+      await DailyAssistanceLimit.findOrCreate({
+        where: { date: limitDate },
+        defaults: {
+          date: limitDate,
+          maxDailyCapacity: 25,
+          bookedCount: i === 2 ? 1 : 0,
+          isActive: true,
+        },
+      });
     }
 
-    // 6. Create Demo Time Slot & Assistance Request
-    const slotDate = addDays(today, 2).toISOString().split('T')[0];
-    const slot = await TimeSlot.findOne({ where: { date: slotDate, startTime: '10:00' } });
+    // 6. Create Demo Assistance Request
+    const assistDate = addDays(today, 2).toISOString().split('T')[0];
 
-    if (slot && firstJob) {
+    if (firstJob) {
       const [assistance] = await AssistanceRequest.findOrCreate({
         where: { userId: student.id, jobId: firstJob.id },
         defaults: {
           userId: student.id,
           jobId: firstJob.id,
-          preferredSlotId: slot.id,
+          bookingDate: assistDate,
           assignedAgentId: agent.id,
           status: ASSISTANCE_STATUSES.ASSIGNED,
-          serviceFee: 50.0,
+          serviceFee: 69.0,
           officialFee: firstJob.applicationFee,
-          totalAmount: firstJob.applicationFee + 50.0,
+          totalAmount: firstJob.applicationFee + 69.0,
           meetingLink: 'https://meet.google.com/abc-demo-xyz',
-          scheduledAt: new Date(`${slot.date}T${slot.startTime}:00`),
+          scheduledAt: new Date(`${assistDate}T10:00:00`),
         },
       });
 

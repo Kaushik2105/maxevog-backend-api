@@ -26,6 +26,11 @@ const Profile = sequelize.define(
       defaultValue: 'CANDIDATE',
       allowNull: false,
     },
+    agentStatus: {
+      type: DataTypes.ENUM('IDLE', 'ASSISTING'),
+      defaultValue: 'IDLE',
+      allowNull: false,
+    },
     avatarUrl: {
       type: DataTypes.STRING,
       allowNull: true,

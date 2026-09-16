@@ -21,4 +21,10 @@ router.patch('/sessions/:id', agentController.updateSession);
 router.get('/applications', agentController.getApplications);
 router.patch('/applications/:id/status', agentController.updateApplicationStage);
 
+// Availability toggle (IDLE vs ASSISTING)
+router.patch('/availability', agentController.updateAvailability);
+
+// Live agent directory for dispatch
+router.get('/directory', agentController.getAgentDirectory);
+
 module.exports = router;

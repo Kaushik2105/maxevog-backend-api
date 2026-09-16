@@ -7,7 +7,6 @@ const {
   User,
   Profile,
   Job,
-  TimeSlot,
   Application,
   AssistanceRequest,
   Payment,
@@ -56,7 +55,6 @@ async function getAgentDashboard(agentId) {
         include: [{ model: Profile, as: 'profile' }],
       },
       { model: Job, as: 'job' },
-      { model: TimeSlot, as: 'timeSlot' },
     ],
     order: [['createdAt', 'ASC']],
     limit: 10,
@@ -91,7 +89,6 @@ async function getAgentSessions(agentId, query = {}) {
         include: [{ model: Profile, as: 'profile' }],
       },
       { model: Job, as: 'job' },
-      { model: TimeSlot, as: 'timeSlot' },
     ],
     order: [['createdAt', 'DESC']],
     limit,
@@ -134,7 +131,7 @@ async function getAgentApplications(agentId, query = {}) {
 }
 
 /**
- * Update an assistance session (Meeting URL, status, notes)
+ * Update assistance session details (Google Meet link, internal notes, completion status)
  */
 async function updateSession(sessionId, agentId, updateData, userRole) {
   const session = await AssistanceRequest.findByPk(sessionId, {
@@ -190,10 +187,81 @@ async function updateApplicationStage(applicationId, agentId, { status, remarks 
   return application;
 }
 
+/**
+ * Update live agent availability status (IDLE vs ASSISTING)
+ */
+async function updateAgentAvailability(agentUserId, { agentStatus }) {
+  const normalizedStatus = (agentStatus || '').toUpperCase();
+  if (!['IDLE', 'ASSISTING'].includes(normalizedStatus)) {
+    throw new AppError('Invalid agent availability status. Must be IDLE or ASSISTING.', 400);
+  }
+
+  const profile = await Profile.findOne({ where: { userId: agentUserId } });
+  if (!profile) {
+    throw new AppError('Agent profile not found', 404);
+  }
+
+  profile.agentStatus = normalizedStatus;
+  await profile.save();
+
+  const { logAction } = require('./audit.service');
+  const { AUDIT_ACTIONS } = require('../constants/audit.constant');
+  await logAction({
+    actorId: agentUserId,
+    actorRole: 'AGENT',
+    action: AUDIT_ACTIONS.AGENT_AVAILABILITY_CHANGED,
+    entityType: 'Profile',
+    entityId: profile.id,
+    metadata: { agentStatus: normalizedStatus },
+  });
+
+  return { agentStatus: normalizedStatus };
+}
+
+/**
+ * Directory of all active agents with their live availability and workload
+ */
+async function listAgentDirectory() {
+  const agents = await User.findAll({
+    where: { role: 'AGENT', status: 'ACTIVE' },
+    attributes: ['id', 'email', 'status', 'createdAt'],
+    include: [{ model: Profile, as: 'profile' }],
+  });
+
+  const agentIds = agents.map((a) => a.id);
+  const activeSessions = await AssistanceRequest.findAll({
+    attributes: [
+      'assignedAgentId',
+      [AssistanceRequest.sequelize.fn('COUNT', AssistanceRequest.sequelize.col('id')), 'count'],
+    ],
+    where: {
+      assignedAgentId: { [Op.in]: agentIds },
+      status: { [Op.in]: [ASSISTANCE_STATUSES.SCHEDULED, ASSISTANCE_STATUSES.IN_PROGRESS] },
+    },
+    group: ['assignedAgentId'],
+    raw: true,
+  });
+
+  const sessionCounts = {};
+  activeSessions.forEach((s) => {
+    sessionCounts[s.assignedAgentId] = parseInt(s.count, 10) || 0;
+  });
+
+  return agents.map((agent) => ({
+    id: agent.id,
+    email: agent.email,
+    fullName: agent.profile?.fullName || agent.email.split('@')[0],
+    agentStatus: agent.profile?.agentStatus || 'IDLE',
+    activeSessionsCount: sessionCounts[agent.id] || 0,
+  }));
+}
+
 module.exports = {
   getAgentDashboard,
   getAgentSessions,
   getAgentApplications,
   updateSession,
   updateApplicationStage,
+  updateAgentAvailability,
+  listAgentDirectory,
 };

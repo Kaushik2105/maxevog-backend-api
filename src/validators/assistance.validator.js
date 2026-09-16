@@ -5,9 +5,28 @@ const { body, param } = require('express-validator');
 const { ALL_ASSISTANCE_STATUSES } = require('../constants/assistance.constant');
 
 const requestAssistanceValidator = [
-  body('jobId').isUUID(4).withMessage('Valid Job UUID is required'),
-  body('preferredSlotId').isUUID(4).withMessage('Valid preferred time slot UUID is required'),
-  body('notes').optional().trim().isLength({ max: 500 }),
+  body('jobId')
+    .optional({ nullable: true, checkFalsy: true })
+    .custom((val, { req }) => {
+      if (!val && !req.body.customExamTitle) {
+        throw new Error('Either a valid Job or a Custom Exam Title is required');
+      }
+      return true;
+    }),
+  body('customExamTitle').optional().trim().isLength({ max: 200 }),
+  body('bookingDate')
+    .optional({ nullable: true, checkFalsy: true })
+    .custom((val, { req }) => {
+      const target = val || req.body.date;
+      if (!target && !req.body.isUrgent) {
+        throw new Error('A valid booking date (YYYY-MM-DD) is required');
+      }
+      return true;
+    }),
+  body('date').optional().trim(),
+  body('notes').optional().trim().isLength({ max: 1000 }),
+  body('isUrgent').optional().toBoolean(),
+  body('urgencyReason').optional().trim().isLength({ max: 1000 }),
 ];
 
 const assignAgentValidator = [

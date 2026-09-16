@@ -9,7 +9,6 @@ const Profile = require('./profile.model');
 const Job = require('./job.model');
 const Result = require('./result.model');
 const AdmitCard = require('./admitCard.model');
-const TimeSlot = require('./timeSlot.model');
 const Application = require('./application.model');
 const AssistanceRequest = require('./assistanceRequest.model');
 const Payment = require('./payment.model');
@@ -19,6 +18,7 @@ const NotificationPreference = require('./notificationPreference.model');
 const Feedback = require('./feedback.model');
 const AuditLog = require('./auditLog.model');
 const Otp = require('./otp.model');
+const DailyAssistanceLimit = require('./dailyAssistanceLimit.model');
 
 // ==========================================
 // User & Profile
@@ -125,19 +125,6 @@ AssistanceRequest.belongsTo(Job, {
   as: 'job',
 });
 
-TimeSlot.hasMany(AssistanceRequest, {
-  foreignKey: 'preferredSlotId',
-  as: 'assistanceRequests',
-  onDelete: 'SET NULL',
-});
-AssistanceRequest.belongsTo(TimeSlot, {
-  foreignKey: 'preferredSlotId',
-  as: 'preferredSlot',
-});
-AssistanceRequest.belongsTo(TimeSlot, {
-  foreignKey: 'preferredSlotId',
-  as: 'timeSlot',
-});
 
 AssistanceRequest.hasOne(Application, {
   foreignKey: 'assistanceRequestId',
@@ -237,10 +224,16 @@ async function syncDatabase(options = {}) {
           IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'enum_profiles_position') THEN 
             CREATE TYPE "enum_profiles_position" AS ENUM ('CANDIDATE', 'ADMIN', 'AGENT'); 
           END IF; 
+          IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'enum_profiles_agentStatus') THEN 
+            CREATE TYPE "enum_profiles_agentStatus" AS ENUM ('IDLE', 'ASSISTING'); 
+          END IF; 
         END $$;
       `);
       await sequelize.query(`
         ALTER TABLE "profiles" ADD COLUMN IF NOT EXISTS "position" "enum_profiles_position" DEFAULT 'CANDIDATE';
+      `);
+      await sequelize.query(`
+        ALTER TABLE "profiles" ADD COLUMN IF NOT EXISTS "agentStatus" "enum_profiles_agentStatus" DEFAULT 'IDLE';
       `);
       await sequelize.query(`
         ALTER TABLE "jobs" ADD COLUMN IF NOT EXISTS "tables" JSONB DEFAULT '[]'::jsonb;
@@ -251,10 +244,50 @@ async function syncDatabase(options = {}) {
       await sequelize.query(`
         ALTER TABLE "jobs" ADD COLUMN IF NOT EXISTS "eligibleBranches" JSONB DEFAULT '[]'::jsonb;
       `);
+      await sequelize.query(`
+        ALTER TABLE "assistance_requests" ADD COLUMN IF NOT EXISTS "bookingDate" DATE;
+      `);
+      await sequelize.query(`
+        ALTER TABLE "assistance_requests" ADD COLUMN IF NOT EXISTS "isUrgent" BOOLEAN DEFAULT FALSE;
+      `);
+      await sequelize.query(`
+        ALTER TABLE "assistance_requests" ADD COLUMN IF NOT EXISTS "urgencyReason" TEXT;
+      `);
+      await sequelize.query(`
+        ALTER TABLE "assistance_requests" ADD COLUMN IF NOT EXISTS "customExamTitle" VARCHAR(255);
+      `);
+      await sequelize.query(`
+        ALTER TABLE "assistance_requests" ADD COLUMN IF NOT EXISTS "priorityFee" FLOAT DEFAULT 0.0;
+      `);
     } catch (e) {
       // Fall through to standard sync if tables do not exist yet
     }
+  } else if (sequelize.getDialect() === 'sqlite') {
+    try {
+      const [results] = await sequelize.query("PRAGMA table_info('assistance_requests');");
+      if (results && results.length > 0) {
+        const colNames = results.map((r) => r.name);
+        if (!colNames.includes('bookingDate')) {
+          await sequelize.query('ALTER TABLE assistance_requests ADD COLUMN bookingDate TEXT;');
+        }
+        if (!colNames.includes('isUrgent')) {
+          await sequelize.query('ALTER TABLE assistance_requests ADD COLUMN isUrgent INTEGER DEFAULT 0;');
+        }
+        if (!colNames.includes('urgencyReason')) {
+          await sequelize.query('ALTER TABLE assistance_requests ADD COLUMN urgencyReason TEXT;');
+        }
+        if (!colNames.includes('customExamTitle')) {
+          await sequelize.query('ALTER TABLE assistance_requests ADD COLUMN customExamTitle TEXT;');
+        }
+        if (!colNames.includes('priorityFee')) {
+          await sequelize.query('ALTER TABLE assistance_requests ADD COLUMN priorityFee REAL DEFAULT 0.0;');
+        }
+      }
+    } catch (e) {
+      // Table doesn't exist yet, standard sync will create it
+    }
   }
+
   await sequelize.sync(options);
   console.log('[DB] Database schema synchronized successfully.');
 }
@@ -267,7 +300,6 @@ module.exports = {
   Job,
   Result,
   AdmitCard,
-  TimeSlot,
   Application,
   AssistanceRequest,
   Payment,
@@ -277,4 +309,5 @@ module.exports = {
   Feedback,
   AuditLog,
   Otp,
+  DailyAssistanceLimit,
 };

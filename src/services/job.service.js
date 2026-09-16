@@ -176,9 +176,9 @@ function normalizeJobData(jobData, attachmentUrl) {
       ? parseFloat(jobData.fee)
       : 0;
   const vacancies =
-    jobData.vacancies !== undefined && jobData.vacancies !== ''
+    jobData.vacancies !== undefined && jobData.vacancies !== null && jobData.vacancies !== '' && !isNaN(parseInt(jobData.vacancies, 10))
       ? parseInt(jobData.vacancies, 10)
-      : 1;
+      : null;
   const officialApplicationUrl = jobData.officialApplicationUrl || jobData.officialUrl;
   const officialNotificationUrl = jobData.officialNotificationUrl || jobData.officialUrl;
 
@@ -239,10 +239,11 @@ async function createJob(jobData, attachmentBuffer, actor) {
   const normalized = normalizeJobData(jobData, attachmentUrl);
   const job = await Job.create(normalized);
 
+  const isAgent = actor && actor.role === 'AGENT';
   await logAction({
     actorId: actor ? actor.id : null,
     actorRole: actor ? actor.role : 'ADMIN',
-    action: AUDIT_ACTIONS.ADMIN_CREATED_JOB,
+    action: isAgent ? AUDIT_ACTIONS.AGENT_CREATED_JOB : AUDIT_ACTIONS.ADMIN_CREATED_JOB,
     entityType: 'Job',
     entityId: job.id,
     metadata: { title: job.title, organization: job.organization },
@@ -252,7 +253,7 @@ async function createJob(jobData, attachmentBuffer, actor) {
 }
 
 /**
- * Admin: Update an existing job
+ * Admin / Agent: Update an existing job
  */
 async function updateJob(jobId, jobData, attachmentBuffer, actor) {
   const job = await Job.findByPk(jobId);
@@ -268,10 +269,11 @@ async function updateJob(jobId, jobData, attachmentBuffer, actor) {
   const normalized = normalizeJobData(jobData, attachmentUrl);
   await job.update(normalized);
 
+  const isAgent = actor && actor.role === 'AGENT';
   await logAction({
     actorId: actor ? actor.id : null,
     actorRole: actor ? actor.role : 'ADMIN',
-    action: AUDIT_ACTIONS.ADMIN_UPDATED_JOB,
+    action: isAgent ? AUDIT_ACTIONS.AGENT_UPDATED_JOB : AUDIT_ACTIONS.ADMIN_UPDATED_JOB,
     entityType: 'Job',
     entityId: job.id,
   });
@@ -280,7 +282,7 @@ async function updateJob(jobId, jobData, attachmentBuffer, actor) {
 }
 
 /**
- * Admin: Publish or unpublish a job
+ * Admin / Agent: Publish or unpublish a job
  */
 async function setJobPublishStatus(jobId, isPublished, actor) {
   const job = await Job.findByPk(jobId);
@@ -292,10 +294,11 @@ async function setJobPublishStatus(jobId, isPublished, actor) {
   job.status = isPublished ? JOB_STATUSES.PUBLISHED : JOB_STATUSES.DRAFT;
   await job.save();
 
+  const isAgent = actor && actor.role === 'AGENT';
   await logAction({
     actorId: actor ? actor.id : null,
     actorRole: actor ? actor.role : 'ADMIN',
-    action: AUDIT_ACTIONS.ADMIN_PUBLISHED_JOB,
+    action: isAgent ? AUDIT_ACTIONS.AGENT_PUBLISHED_JOB : AUDIT_ACTIONS.ADMIN_PUBLISHED_JOB,
     entityType: 'Job',
     entityId: job.id,
     metadata: { isPublished: job.isPublished },
@@ -305,7 +308,7 @@ async function setJobPublishStatus(jobId, isPublished, actor) {
 }
 
 /**
- * Admin: Archive a job
+ * Admin / Agent: Archive a job
  */
 async function archiveJob(jobId, actor) {
   const job = await Job.findByPk(jobId);
@@ -317,10 +320,11 @@ async function archiveJob(jobId, actor) {
   job.isPublished = false;
   await job.save();
 
+  const isAgent = actor && actor.role === 'AGENT';
   await logAction({
     actorId: actor ? actor.id : null,
     actorRole: actor ? actor.role : 'ADMIN',
-    action: AUDIT_ACTIONS.ADMIN_ARCHIVED_JOB,
+    action: isAgent ? AUDIT_ACTIONS.AGENT_ARCHIVED_JOB : AUDIT_ACTIONS.ADMIN_ARCHIVED_JOB,
     entityType: 'Job',
     entityId: job.id,
   });

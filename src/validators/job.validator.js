@@ -21,7 +21,7 @@ const createJobValidator = [
     }),
   body('ageMin').optional().toInt().isInt({ min: 14, max: 65 }),
   body('ageMax').optional().toInt().isInt({ min: 18, max: 70 }),
-  body('vacancies').optional().toInt().isInt({ min: 1 }),
+  body('vacancies').optional({ nullable: true, checkFalsy: true }).toInt().isInt({ min: 0 }),
   body('applicationFee').optional().toFloat().isFloat({ min: 0 }),
   body('fee').optional().toFloat().isFloat({ min: 0 }),
   body('officialApplicationUrl').optional().isURL().withMessage('Must be a valid URL'),

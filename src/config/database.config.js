@@ -69,28 +69,41 @@ if (envConfig.app.isTest) {
  * Test database connection and fallback to SQLite if primary connection fails and fallback is allowed
  */
 async function connectDatabase() {
-  try {
-    await sequelize.authenticate();
-    console.log('[DB] Database connected successfully.');
-    return sequelize;
-  } catch (error) {
-    if (envConfig.db.sqliteFallback && sequelize.getDialect() !== 'sqlite') {
-      const fallbackPath = path.resolve(__dirname, '../../database.sqlite');
-      sequelize = new Sequelize({
-        dialect: 'sqlite',
-        storage: fallbackPath,
-        logging: false,
-      });
+  let attempts = 0;
+  const maxAttempts = 3;
+  while (attempts < maxAttempts) {
+    try {
+      attempts++;
       await sequelize.authenticate();
-      console.log('[DB] Database connected successfully (SQLite fallback).');
+      console.log(`[DB] Database connected successfully (${sequelize.getDialect()}).`);
       return sequelize;
+    } catch (error) {
+      if (attempts < maxAttempts && sequelize.getDialect() === 'postgres') {
+        console.warn(`[DB] Database connection attempt ${attempts} failed (${error.message}). Retrying in 1.5s...`);
+        await new Promise((res) => setTimeout(res, 1500));
+        continue;
+      }
+      if (envConfig.db.sqliteFallback && sequelize.getDialect() !== 'sqlite') {
+        console.warn(`[DB] Primary database connection failed: ${error.message}. Switching to SQLite fallback...`);
+        const fallbackPath = path.resolve(__dirname, '../../database.sqlite');
+        sequelize = new Sequelize({
+          dialect: 'sqlite',
+          storage: fallbackPath,
+          logging: false,
+        });
+        await sequelize.authenticate();
+        console.log('[DB] Database connected successfully (SQLite fallback).');
+        return sequelize;
+      }
+      console.error('[DB] Database connection error:', error.message);
+      throw error;
     }
-    console.error('[DB] Database connection error:', error.message);
-    throw error;
   }
 }
 
 module.exports = {
-  sequelize,
+  get sequelize() {
+    return sequelize;
+  },
   connectDatabase,
 };

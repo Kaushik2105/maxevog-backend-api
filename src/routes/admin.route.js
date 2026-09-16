@@ -45,6 +45,34 @@ router.get('/feedback', feedbackController.listAdminFeedbacks);
 router.patch('/feedback/:id/resolve', feedbackController.respondToFeedback);
 router.patch('/feedback/:id', feedbackController.respondToFeedback);
 
+const dailyAssistanceLimitService = require('../services/dailyAssistanceLimit.service');
+
+// Daily Assistance Capacity & Limits Management
+router.get('/assistance/daily-limits', async (req, res, next) => {
+  try {
+    const limits = await dailyAssistanceLimitService.getDailyAvailability(
+      req.query.startDate,
+      req.query.days ? parseInt(req.query.days, 10) : 14
+    );
+    return res.status(200).json({ success: true, data: { limits } });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.put('/assistance/daily-limits', async (req, res, next) => {
+  try {
+    const limit = await dailyAssistanceLimitService.updateDailyLimit(req.body);
+    return res.status(200).json({
+      success: true,
+      message: 'Daily assistance limit updated successfully',
+      data: { limit },
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
 // System Audit Logs
 router.get('/audit-logs', adminController.listAuditLogs);
 

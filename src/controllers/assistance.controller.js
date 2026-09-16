@@ -6,17 +6,31 @@ const { sendSuccess } = require('../utils/response.util');
 
 async function requestAssistance(req, res, next) {
   try {
-    const { jobId, preferredSlotId, notes } = req.body;
+    const {
+      jobId,
+      customExamTitle,
+      bookingDate,
+      date,
+      preferredSlotId,
+      notes,
+      isUrgent,
+      urgencyReason,
+    } = req.body;
+
     const result = await assistanceService.requestAssistance({
       userId: req.user.id,
       jobId,
+      customExamTitle,
+      bookingDate: bookingDate || date,
       preferredSlotId,
       notes,
+      isUrgent,
+      urgencyReason,
     });
 
     return sendSuccess(res, {
       statusCode: 201,
-      message: 'Application assistance requested successfully',
+      message: result.message || 'Application assistance requested successfully',
       data: result,
     });
   } catch (error) {

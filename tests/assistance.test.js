@@ -3,7 +3,7 @@
  */
 const request = require('supertest');
 const app = require('../src/app');
-const { User, Job, TimeSlot } = require('../src/models');
+const { User, Job, DailyAssistanceLimit } = require('../src/models');
 const { generateToken } = require('../src/utils/jwt.util');
 const { hashPassword } = require('../src/utils/password.util');
 
@@ -11,7 +11,6 @@ describe('Assistance Request Module', () => {
   let studentToken;
   let adminToken;
   let agentUser;
-  let slotId;
   let jobId;
   let createdAssistanceId;
 
@@ -53,16 +52,13 @@ describe('Assistance Request Module', () => {
     });
     jobId = job.id;
 
-    // Time Slot
-    const slot = await TimeSlot.create({
+    // Daily Desk Limit
+    await DailyAssistanceLimit.create({
       date: '2026-10-05',
-      startTime: '11:00',
-      endTime: '12:00',
-      maxCapacity: 1,
-      availableCapacity: 1,
-      status: 'AVAILABLE',
+      maxDailyCapacity: 20,
+      bookedCount: 0,
+      isActive: true,
     });
-    slotId = slot.id;
   });
 
   it('should create an assistance request charging only the flat ₹69 service fee', async () => {
@@ -71,7 +67,7 @@ describe('Assistance Request Module', () => {
       .set('Authorization', `Bearer ${studentToken}`)
       .send({
         jobId,
-        preferredSlotId: slotId,
+        bookingDate: '2026-10-05',
         notes: 'Need help with certificate format upload',
       });
 
@@ -81,14 +77,14 @@ describe('Assistance Request Module', () => {
     expect(res.body.data.assistanceRequest.officialFee).toBe(150.0);
     expect(res.body.data.assistanceRequest.serviceFee).toBe(69.0);
     expect(res.body.data.assistanceRequest.totalAmount).toBe(69.0); // Only flat 69 service fee charged at booking
+    expect(res.body.data.assistanceRequest.bookingDate).toBe('2026-10-05');
     expect(res.body.data.payment).toBeDefined();
     expect(res.body.data.payment.totalAmount).toBe(69.0);
     createdAssistanceId = res.body.data.assistanceRequest.id;
 
-    // Verify slot is now booked (capacity depleted)
-    const updatedSlot = await TimeSlot.findByPk(slotId);
-    expect(updatedSlot.availableCapacity).toBe(0);
-    expect(updatedSlot.status).toBe('BOOKED');
+    // Verify daily capacity incremented
+    const updatedLimit = await DailyAssistanceLimit.findOne({ where: { date: '2026-10-05' } });
+    expect(updatedLimit.bookedCount).toBe(1);
   });
 
   it('should allow admin to assign an agent and Google Meet link to the session', async () => {

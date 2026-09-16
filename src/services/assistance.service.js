@@ -7,7 +7,7 @@ const {
   AssistanceRequest,
   Application,
   Job,
-  TimeSlot,
+  DailyAssistanceLimit,
   User,
   Payment,
   sequelize,
@@ -16,7 +16,7 @@ const { ASSISTANCE_STATUSES } = require('../constants/assistance.constant');
 const { APPLICATION_STATUSES } = require('../constants/application.constant');
 const { PAYMENT_TYPES } = require('../constants/payment.constant');
 const { AUDIT_ACTIONS } = require('../constants/audit.constant');
-const { reserveSlot } = require('./timeSlot.service');
+const { checkAndReserveDailyCapacity } = require('./dailyAssistanceLimit.service');
 const { createPayment } = require('./payment.service');
 const { getCurrentMembership } = require('./membership.service');
 const { logAction } = require('./audit.service');
@@ -27,55 +27,91 @@ const { AppError } = require('../middleware/error.middleware');
 /**
  * Request application assistance
  */
-async function requestAssistance({ userId, jobId, preferredSlotId, notes = '' }) {
-  const job = await Job.findByPk(jobId);
-  if (!job || !job.isPublished) {
-    throw new AppError('The selected recruitment is not active or available for assistance', 404);
+async function requestAssistance({
+  userId,
+  jobId,
+  customExamTitle,
+  bookingDate,
+  date,
+  notes = '',
+  isUrgent = false,
+  urgencyReason = '',
+}) {
+  const targetDate = bookingDate || date || new Date().toISOString().split('T')[0];
+  let job = null;
+  let officialFee = 0;
+
+  if (jobId && jobId !== 'OTHER') {
+    job = await Job.findByPk(jobId);
+    if (job) {
+      officialFee = job.applicationFee || 0;
+    }
   }
 
-  // Check for existing pending/active assistance request for this job
-  const existingRequest = await AssistanceRequest.findOne({
-    where: {
-      userId,
-      jobId,
-      status: [
-        ASSISTANCE_STATUSES.REQUESTED,
-        ASSISTANCE_STATUSES.PAYMENT_PENDING,
-        ASSISTANCE_STATUSES.PAID,
-        ASSISTANCE_STATUSES.ASSIGNED,
-        ASSISTANCE_STATUSES.SCHEDULED,
-        ASSISTANCE_STATUSES.IN_PROGRESS,
-      ],
-    },
-  });
+  // Active duplicate request check
+  const whereCondition = {
+    userId,
+    status: [
+      ASSISTANCE_STATUSES.REQUESTED,
+      ASSISTANCE_STATUSES.URGENT_PENDING_REVIEW,
+      ASSISTANCE_STATUSES.PAYMENT_PENDING,
+      ASSISTANCE_STATUSES.PAID,
+      ASSISTANCE_STATUSES.ASSIGNED,
+      ASSISTANCE_STATUSES.SCHEDULED,
+      ASSISTANCE_STATUSES.IN_PROGRESS,
+    ],
+  };
 
+  if (job) {
+    whereCondition.jobId = job.id;
+  } else if (customExamTitle) {
+    whereCondition.customExamTitle = customExamTitle;
+  }
+
+  const existingRequest = await AssistanceRequest.findOne({ where: whereCondition });
   if (existingRequest) {
-    throw new AppError('You already have an active assistance request for this recruitment', 400);
+    throw new AppError('You already have an active assistance request for this recruitment/examination', 400);
   }
 
   const { hasActiveMembership: isPro } = await getCurrentMembership(userId);
-  const officialFee = job.applicationFee || 0;
-  const serviceFee = isPro ? 0 : (envConfig.business.defaultAssistanceFee || 69);
-  // Only charge the platform desk service fee (69 or 0 for Pro).
-  // Official board application fee is paid directly by candidate on the govt portal during session.
-  const totalAmount = serviceFee;
+
+  // Urgent vs Standard fee calculation
+  let serviceFee = isPro ? 0 : (envConfig.business.defaultAssistanceFee || 69);
+  let priorityFee = 0;
+
+  if (isUrgent) {
+    priorityFee = 30; // ₹30 urgent deadline priority surcharge
+  }
+
+  const totalAmount = serviceFee + priorityFee; // ₹69 standard, ₹99 urgent
 
   return sequelize.transaction(async (t) => {
-    // 1. Reserve selected slot
-    const slot = await reserveSlot(preferredSlotId, t);
-    const scheduledDateTime = new Date(`${slot.date}T${slot.startTime}:00`);
+    let scheduledDateTime = null;
+    let initialStatus = ASSISTANCE_STATUSES.SCHEDULED;
+    let initialAppStatus = APPLICATION_STATUSES.PROCESSING;
 
-    const initialStatus = totalAmount === 0 ? ASSISTANCE_STATUSES.SCHEDULED : ASSISTANCE_STATUSES.PAYMENT_PENDING;
-    const initialAppStatus = totalAmount === 0 ? APPLICATION_STATUSES.PROCESSING : APPLICATION_STATUSES.PAYMENT_PENDING;
+    if (isUrgent) {
+      // Urgent requests are submitted for admin/agent accommodation review (not auto-scheduled)
+      initialStatus = ASSISTANCE_STATUSES.URGENT_PENDING_REVIEW;
+      initialAppStatus = APPLICATION_STATUSES.DRAFT;
+    } else {
+      // Standard booking: check and reserve daily capacity
+      await checkAndReserveDailyCapacity(targetDate, t);
+      scheduledDateTime = new Date(`${targetDate}T10:00:00`);
+    }
 
-    // 2. Create assistance request record
+    // 1. Create assistance request record
     const assistanceRequest = await AssistanceRequest.create(
       {
         userId,
-        jobId,
-        preferredSlotId,
+        jobId: job ? job.id : null,
+        customExamTitle: job ? null : (customExamTitle || 'Government Examination'),
+        bookingDate: targetDate,
+        isUrgent: Boolean(isUrgent),
+        urgencyReason: urgencyReason || null,
         officialFee,
         serviceFee,
+        priorityFee,
         totalAmount,
         notes,
         status: initialStatus,
@@ -84,11 +120,11 @@ async function requestAssistance({ userId, jobId, preferredSlotId, notes = '' })
       { transaction: t }
     );
 
-    // 3. Create linked tracking application
+    // 2. Create linked tracking application
     const application = await Application.create(
       {
         userId,
-        jobId,
+        jobId: job ? job.id : null,
         assistanceRequestId: assistanceRequest.id,
         status: initialAppStatus,
       },
@@ -98,7 +134,8 @@ async function requestAssistance({ userId, jobId, preferredSlotId, notes = '' })
     assistanceRequest.applicationId = application.id;
     await assistanceRequest.save({ transaction: t });
 
-    // 4. Create payment record
+    // 3. Create payment record
+    // Cashfree payment gateway verification is pending: direct confirmation bypass for standard booking
     const payment = await createPayment({
       userId,
       paymentType: PAYMENT_TYPES.ASSISTANCE,
@@ -109,7 +146,7 @@ async function requestAssistance({ userId, jobId, preferredSlotId, notes = '' })
       assistanceRequestId: assistanceRequest.id,
     });
 
-    if (totalAmount === 0) {
+    if (!isUrgent) {
       payment.status = 'SUCCESS';
       await payment.save();
     }
@@ -118,6 +155,10 @@ async function requestAssistance({ userId, jobId, preferredSlotId, notes = '' })
       assistanceRequest,
       application,
       payment,
+      confirmed: !isUrgent,
+      message: isUrgent
+        ? 'Urgent assistance request submitted for immediate review. Our desk team will contact you.'
+        : 'Assistance session confirmed! Your specialist will connect via Google Meet.',
     };
   });
 }
@@ -132,7 +173,6 @@ async function getUserAssistanceRequests(userId, query = {}) {
     where: { userId },
     include: [
       { model: Job, as: 'job', attributes: ['id', 'title', 'organization', 'applicationLastDate'] },
-      { model: TimeSlot, as: 'preferredSlot' },
       { model: Application, as: 'application' },
       { model: User, as: 'assignedAgent', attributes: ['id', 'email', 'role'] },
     ],
@@ -151,7 +191,6 @@ async function getAssistanceRequestById(id, user) {
   const assistance = await AssistanceRequest.findByPk(id, {
     include: [
       { model: Job, as: 'job' },
-      { model: TimeSlot, as: 'preferredSlot' },
       { model: Application, as: 'application' },
       { model: User, as: 'assignedAgent', attributes: ['id', 'email', 'role'] },
       { model: User, as: 'user', attributes: ['id', 'email'] },
@@ -276,7 +315,6 @@ async function listAdminAssistance(query = {}) {
       { model: Job, as: 'job', attributes: ['id', 'title', 'organization'] },
       { model: User, as: 'user', attributes: ['id', 'email'] },
       { model: User, as: 'assignedAgent', attributes: ['id', 'email'] },
-      { model: TimeSlot, as: 'preferredSlot' },
     ],
     order: [['createdAt', 'DESC']],
     limit,

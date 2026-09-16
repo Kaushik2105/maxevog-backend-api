@@ -104,10 +104,11 @@ async function createResult(data, attachmentBuffer, actor) {
 
   const result = await Result.create(payload);
 
+  const isAgent = actor && actor.role === 'AGENT';
   await logAction({
     actorId: actor ? actor.id : null,
     actorRole: actor ? actor.role : 'ADMIN',
-    action: AUDIT_ACTIONS.ADMIN_CREATED_RESULT,
+    action: isAgent ? AUDIT_ACTIONS.AGENT_CREATED_RESULT : AUDIT_ACTIONS.ADMIN_CREATED_RESULT,
     entityType: 'Result',
     entityId: result.id,
     metadata: { title: result.title, jobId: result.jobId },
@@ -155,10 +156,11 @@ async function setPublishStatus(id, isPublished, actor) {
   result.isPublished = Boolean(isPublished);
   await result.save();
 
+  const isAgent = actor && actor.role === 'AGENT';
   await logAction({
     actorId: actor ? actor.id : null,
     actorRole: actor ? actor.role : 'ADMIN',
-    action: AUDIT_ACTIONS.ADMIN_PUBLISHED_RESULT,
+    action: isAgent ? AUDIT_ACTIONS.AGENT_PUBLISHED_RESULT : AUDIT_ACTIONS.ADMIN_PUBLISHED_RESULT,
     entityType: 'Result',
     entityId: result.id,
     metadata: { isPublished: result.isPublished },

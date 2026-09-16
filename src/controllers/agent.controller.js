@@ -82,10 +82,38 @@ async function updateApplicationStage(req, res, next) {
   }
 }
 
+async function updateAvailability(req, res, next) {
+  try {
+    const result = await agentService.updateAgentAvailability(req.user.id, req.body);
+    return sendSuccess(res, {
+      statusCode: 200,
+      message: `Agent availability updated to ${result.agentStatus}`,
+      data: result,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+async function getAgentDirectory(req, res, next) {
+  try {
+    const agents = await agentService.listAgentDirectory();
+    return sendSuccess(res, {
+      statusCode: 200,
+      message: 'Agent live directory fetched successfully',
+      data: { agents },
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
 module.exports = {
   getDashboard,
   getSessions,
   getApplications,
   updateSession,
   updateApplicationStage,
+  updateAvailability,
+  getAgentDirectory,
 };

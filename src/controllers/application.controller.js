@@ -96,6 +96,32 @@ async function updateStatus(req, res, next) {
   }
 }
 
+async function uploadDocument(req, res, next) {
+  try {
+    const result = await applicationService.addApplicationDocument(req.params.id, req.file, req.user);
+    return sendSuccess(res, {
+      statusCode: 201,
+      message: 'Document uploaded and attached successfully',
+      data: result,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+async function deleteDocument(req, res, next) {
+  try {
+    const result = await applicationService.deleteApplicationDocument(req.params.id, req.params.docId, req.user);
+    return sendSuccess(res, {
+      statusCode: 200,
+      message: 'Document deleted successfully',
+      data: result,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
 module.exports = {
   createApplication,
   getUserApplications,
@@ -103,4 +129,6 @@ module.exports = {
   authorizeSubmission,
   completeSubmission,
   updateStatus,
+  uploadDocument,
+  deleteDocument,
 };

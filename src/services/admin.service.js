@@ -350,12 +350,12 @@ async function listAllApplications(query = {}) {
  * Overview of platform financial transactions & collections
  */
 async function getFinancialsOverview() {
-  const totalRevenue = await Payment.sum('amount', { where: { status: 'SUCCESS' } }) || 0;
-  const assistanceRevenue = await Payment.sum('amount', {
-    where: { status: 'SUCCESS', type: 'ASSISTANCE_FEE' },
+  const totalRevenue = await Payment.sum('totalAmount', { where: { status: 'SUCCESS' } }) || 0;
+  const assistanceRevenue = await Payment.sum('totalAmount', {
+    where: { status: 'SUCCESS', paymentType: 'ASSISTANCE' },
   }) || 0;
-  const membershipRevenue = await Payment.sum('amount', {
-    where: { status: 'SUCCESS', type: 'MEMBERSHIP' },
+  const membershipRevenue = await Payment.sum('totalAmount', {
+    where: { status: 'SUCCESS', paymentType: 'MEMBERSHIP' },
   }) || 0;
 
   const recentTransactions = await Payment.findAll({
@@ -375,7 +375,12 @@ async function getFinancialsOverview() {
     totalRevenue,
     assistanceRevenue,
     membershipRevenue,
-    recentTransactions,
+    recentTransactions: recentTransactions.map((tx) => {
+      const data = tx.toJSON();
+      data.amount = data.totalAmount || data.serviceFee || 0;
+      data.type = data.paymentType === 'ASSISTANCE' ? 'ASSISTANCE_FEE' : data.paymentType;
+      return data;
+    }),
   };
 }
 

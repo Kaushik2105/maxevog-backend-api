@@ -133,6 +133,59 @@ async function getAgentApplications(agentId, query = {}) {
 /**
  * Update assistance session details (Google Meet link, internal notes, completion status)
  */
+/**
+ * Auto-dispatch next queued assistance request to an idle agent
+ */
+async function dispatchNextQueuedRequest(agentId) {
+  const queuedRequest = await AssistanceRequest.findOne({
+    where: {
+      assignedAgentId: null,
+      status: {
+        [Op.in]: [
+          ASSISTANCE_STATUSES.SCHEDULED,
+          ASSISTANCE_STATUSES.REQUESTED,
+          ASSISTANCE_STATUSES.PAID,
+          ASSISTANCE_STATUSES.URGENT_PENDING_REVIEW,
+        ],
+      },
+    },
+    order: [['createdAt', 'ASC']],
+  });
+
+  if (!queuedRequest) {
+    const profile = await Profile.findOne({ where: { userId: agentId } });
+    if (profile && profile.agentStatus !== 'IDLE') {
+      profile.agentStatus = 'IDLE';
+      await profile.save();
+    }
+    return null;
+  }
+
+  queuedRequest.assignedAgentId = agentId;
+  queuedRequest.status = ASSISTANCE_STATUSES.ASSIGNED;
+  await queuedRequest.save();
+
+  if (queuedRequest.applicationId) {
+    const app = await Application.findByPk(queuedRequest.applicationId);
+    if (app) {
+      app.assignedAgentId = agentId;
+      app.status = APPLICATION_STATUSES.IN_PROGRESS;
+      await app.save();
+    }
+  }
+
+  const profile = await Profile.findOne({ where: { userId: agentId } });
+  if (profile) {
+    profile.agentStatus = 'ASSISTING';
+    await profile.save();
+  }
+
+  return queuedRequest;
+}
+
+/**
+ * Update assistance session details (Google Meet link, internal notes, completion status)
+ */
 async function updateSession(sessionId, agentId, updateData, userRole) {
   const session = await AssistanceRequest.findByPk(sessionId, {
     include: [{ model: User, as: 'user' }, { model: Job, as: 'job' }],
@@ -152,6 +205,12 @@ async function updateSession(sessionId, agentId, updateData, userRole) {
   if (updateData.notes !== undefined) session.notes = updateData.notes;
 
   await session.save();
+
+  // If completed, automatically assign next queued applicant if one exists
+  if (session.status === ASSISTANCE_STATUSES.COMPLETED) {
+    await dispatchNextQueuedRequest(agentId);
+  }
+
   return session;
 }
 
@@ -204,6 +263,14 @@ async function updateAgentAvailability(agentUserId, { agentStatus }) {
   profile.agentStatus = normalizedStatus;
   await profile.save();
 
+  let assignedSession = null;
+  if (normalizedStatus === 'IDLE') {
+    assignedSession = await dispatchNextQueuedRequest(agentUserId);
+    if (assignedSession) {
+      await profile.reload();
+    }
+  }
+
   const { logAction } = require('./audit.service');
   const { AUDIT_ACTIONS } = require('../constants/audit.constant');
   await logAction({
@@ -212,10 +279,10 @@ async function updateAgentAvailability(agentUserId, { agentStatus }) {
     action: AUDIT_ACTIONS.AGENT_AVAILABILITY_CHANGED,
     entityType: 'Profile',
     entityId: profile.id,
-    metadata: { agentStatus: normalizedStatus },
+    metadata: { agentStatus: profile.agentStatus },
   });
 
-  return { agentStatus: normalizedStatus };
+  return { agentStatus: profile.agentStatus, assignedSession };
 }
 
 /**
@@ -263,5 +330,6 @@ module.exports = {
   updateSession,
   updateApplicationStage,
   updateAgentAvailability,
+  dispatchNextQueuedRequest,
   listAgentDirectory,
 };

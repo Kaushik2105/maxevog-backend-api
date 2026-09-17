@@ -9,6 +9,7 @@ const {
   Job,
   DailyAssistanceLimit,
   User,
+  Profile,
   Payment,
   sequelize,
 } = require('../models');
@@ -88,7 +89,7 @@ async function requestAssistance({
   return sequelize.transaction(async (t) => {
     let scheduledDateTime = null;
     let initialStatus = ASSISTANCE_STATUSES.SCHEDULED;
-    let initialAppStatus = APPLICATION_STATUSES.PROCESSING;
+    let initialAppStatus = APPLICATION_STATUSES.SCHEDULED;
 
     if (isUrgent) {
       // Urgent requests are submitted for admin/agent accommodation review (not auto-scheduled)
@@ -98,6 +99,36 @@ async function requestAssistance({
       // Standard booking: check and reserve daily capacity
       await checkAndReserveDailyCapacity(targetDate, t);
       scheduledDateTime = new Date(`${targetDate}T10:00:00`);
+    }
+
+    // Check if an active agent is idle and available
+    let assignedAgentId = null;
+    let assignedAgent = null;
+
+    const idleAgent = await User.findOne({
+      where: { role: 'AGENT', status: 'ACTIVE' },
+      include: [
+        {
+          model: Profile,
+          as: 'profile',
+          where: { agentStatus: 'IDLE' },
+        },
+      ],
+      order: [['updatedAt', 'ASC']],
+      transaction: t,
+    });
+
+    if (idleAgent) {
+      assignedAgentId = idleAgent.id;
+      assignedAgent = idleAgent;
+      initialStatus = ASSISTANCE_STATUSES.ASSIGNED;
+      initialAppStatus = APPLICATION_STATUSES.IN_PROGRESS;
+
+      // Transition agent status to ASSISTING so they aren't double booked
+      if (idleAgent.profile) {
+        idleAgent.profile.agentStatus = 'ASSISTING';
+        await idleAgent.profile.save({ transaction: t });
+      }
     }
 
     // 1. Create assistance request record
@@ -115,6 +146,7 @@ async function requestAssistance({
         totalAmount,
         notes,
         status: initialStatus,
+        assignedAgentId,
         scheduledAt: scheduledDateTime,
       },
       { transaction: t }
@@ -126,6 +158,7 @@ async function requestAssistance({
         userId,
         jobId: job ? job.id : null,
         assistanceRequestId: assistanceRequest.id,
+        assignedAgentId,
         status: initialAppStatus,
       },
       { transaction: t }
@@ -135,7 +168,6 @@ async function requestAssistance({
     await assistanceRequest.save({ transaction: t });
 
     // 3. Create payment record
-    // Cashfree payment gateway verification is pending: direct confirmation bypass for standard booking
     const payment = await createPayment(
       {
         userId,
@@ -155,13 +187,45 @@ async function requestAssistance({
     }
 
     return {
-      assistanceRequest,
-      application,
-      payment,
+      id: assistanceRequest.id,
+      applicationId: application.id,
+      bookingDate: assistanceRequest.bookingDate,
+      status: assistanceRequest.status,
+      officialFee: assistanceRequest.officialFee,
+      serviceFee: assistanceRequest.serviceFee,
+      priorityFee: assistanceRequest.priorityFee,
+      totalAmount: assistanceRequest.totalAmount,
+      assignedAgentId: assistanceRequest.assignedAgentId,
+      assignedAgent: assignedAgent
+        ? {
+            id: assignedAgent.id,
+            name: assignedAgent.profile?.fullName || assignedAgent.email.split('@')[0],
+            email: assignedAgent.email,
+          }
+        : null,
       confirmed: !isUrgent,
       message: isUrgent
         ? 'Urgent assistance request submitted for immediate review. Our desk team will contact you.'
-        : 'Assistance session confirmed! Your specialist will connect via Google Meet.',
+        : assignedAgent
+        ? 'Assistance session booked! Desk specialist assigned.'
+        : 'Assistance request queued! A specialist will be assigned as soon as available.',
+      assistanceRequest: {
+        id: assistanceRequest.id,
+        userId: assistanceRequest.userId,
+        jobId: assistanceRequest.jobId,
+        bookingDate: assistanceRequest.bookingDate,
+        status: assistanceRequest.status,
+        officialFee: assistanceRequest.officialFee,
+        serviceFee: assistanceRequest.serviceFee,
+        totalAmount: assistanceRequest.totalAmount,
+        assignedAgentId: assistanceRequest.assignedAgentId,
+      },
+      payment: {
+        id: payment.id,
+        totalAmount: payment.totalAmount,
+        serviceFee: payment.serviceFee,
+        status: payment.status,
+      },
     };
   });
 }

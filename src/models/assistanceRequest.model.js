@@ -41,10 +41,6 @@ const AssistanceRequest = sequelize.define(
       type: DataTypes.UUID,
       allowNull: true,
     },
-    preferredSlotId: {
-      type: DataTypes.UUID,
-      allowNull: true,
-    },
     assignedAgentId: {
       type: DataTypes.UUID,
       allowNull: true,

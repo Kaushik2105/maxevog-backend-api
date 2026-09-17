@@ -42,4 +42,8 @@ router.patch(
   applicationController.updateStatus
 );
 
+// Document management for application
+router.post('/:id/documents', authenticate, uploadSingle('document'), applicationController.uploadDocument);
+router.delete('/:id/documents/:docId', authenticate, applicationController.deleteDocument);
+
 module.exports = router;

@@ -84,7 +84,127 @@ async function getApplicationById(id, user) {
     throw new AppError('Forbidden: Access denied to this application', 403);
   }
 
+  const meta = typeof application.metadata === 'string'
+    ? JSON.parse(application.metadata || '{}')
+    : (application.metadata || {});
+  application.setDataValue('documents', meta.documents || []);
+
   return application;
+}
+
+/**
+ * Upload student document to Cloudinary and attach to application
+ */
+async function addApplicationDocument(applicationId, file, user) {
+  const application = await Application.findByPk(applicationId);
+  if (!application) {
+    throw new AppError('Application not found', 404);
+  }
+
+  const isOwner = application.userId === user.id;
+  const isAssignedAgent = application.assignedAgentId === user.id;
+  const isAdmin = user.role === 'ADMIN';
+
+  if (!isOwner && !isAssignedAgent && !isAdmin) {
+    throw new AppError('Forbidden: Access denied to upload documents for this application', 403);
+  }
+
+  if (!file || !file.buffer) {
+    throw new AppError('No document file provided for upload', 400);
+  }
+
+  const { uploadApplicationDocument } = require('./upload.service');
+  const uploadResult = await uploadApplicationDocument(file.buffer, file.originalname, applicationId);
+
+  const { v4: uuidv4 } = require('uuid');
+  const newDoc = {
+    id: uuidv4(),
+    name: file.originalname,
+    url: uploadResult.url,
+    publicId: uploadResult.publicId,
+    size: file.size,
+    mimeType: file.mimetype,
+    uploadedAt: new Date().toISOString(),
+    uploadedBy: user.id,
+  };
+
+  const meta = typeof application.metadata === 'string'
+    ? JSON.parse(application.metadata || '{}')
+    : (application.metadata || {});
+
+  const currentDocs = Array.isArray(meta.documents) ? meta.documents : [];
+  currentDocs.push(newDoc);
+  meta.documents = currentDocs;
+
+  application.metadata = meta;
+  await application.save();
+
+  await logAction({
+    actorId: user.id,
+    actorRole: user.role,
+    action: AUDIT_ACTIONS.DOCUMENT_UPLOADED || 'DOCUMENT_UPLOADED',
+    entityType: 'Application',
+    entityId: application.id,
+    metadata: { documentId: newDoc.id, documentName: newDoc.name },
+  });
+
+  return { document: newDoc, documents: currentDocs };
+}
+
+/**
+ * Delete a document from Cloudinary and remove from application
+ */
+async function deleteApplicationDocument(applicationId, docId, user) {
+  const application = await Application.findByPk(applicationId);
+  if (!application) {
+    throw new AppError('Application not found', 404);
+  }
+
+  const isOwner = application.userId === user.id;
+  const isAssignedAgent = application.assignedAgentId === user.id;
+  const isAdmin = user.role === 'ADMIN';
+
+  if (!isOwner && !isAssignedAgent && !isAdmin) {
+    throw new AppError('Forbidden: Access denied to modify documents for this application', 403);
+  }
+
+  const meta = typeof application.metadata === 'string'
+    ? JSON.parse(application.metadata || '{}')
+    : (application.metadata || {});
+
+  const currentDocs = Array.isArray(meta.documents) ? meta.documents : [];
+  const docIndex = currentDocs.findIndex((d) => d.id === docId);
+
+  if (docIndex === -1) {
+    throw new AppError('Document not found on this application', 404);
+  }
+
+  const [removedDoc] = currentDocs.splice(docIndex, 1);
+
+  // Delete from Cloudinary
+  if (removedDoc.publicId) {
+    const { deleteFromCloudinary } = require('./upload.service');
+    try {
+      await deleteFromCloudinary(removedDoc.publicId);
+    } catch (err) {
+      console.error('Failed to remove file from Cloudinary:', err);
+    }
+  }
+
+  meta.documents = currentDocs;
+  application.metadata = meta;
+  await application.save();
+
+  await logAction({
+    actorId: user.id,
+    actorRole: user.role,
+    action: 'DOCUMENT_DELETED',
+    entityType: 'Application',
+    entityId: application.id,
+    metadata: { documentId: docId, documentName: removedDoc.name },
+  });
+
+  return { success: true, removedDocId: docId, documents: currentDocs };
 }
 
 /**
@@ -198,4 +318,6 @@ module.exports = {
   authorizeSubmission,
   completeSubmission,
   updateApplicationStatus,
+  addApplicationDocument,
+  deleteApplicationDocument,
 };

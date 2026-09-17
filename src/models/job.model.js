@@ -29,6 +29,15 @@ const Job = sequelize.define(
       type: DataTypes.STRING,
       allowNull: true,
     },
+    category: {
+      type: DataTypes.STRING,
+      allowNull: true,
+      defaultValue: 'Central',
+    },
+    createdById: {
+      type: DataTypes.UUID,
+      allowNull: true,
+    },
     description: {
       type: DataTypes.TEXT,
       allowNull: true,

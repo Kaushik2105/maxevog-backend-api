@@ -420,10 +420,27 @@ async function listAgents() {
  */
 async function listAuditLogs(query = {}) {
   const { page, limit, offset } = getPaginationParams(query);
-  const { AuditLog } = require('../models');
+  const { AuditLog, User, Profile } = require('../models');
 
   const { count, rows } = await AuditLog.findAndCountAll({
+    include: [
+      {
+        model: User,
+        as: 'actor',
+        attributes: ['id', 'email', 'role'],
+        include: [
+          {
+            model: Profile,
+            as: 'profile',
+            attributes: ['fullName', 'mobileNumber'],
+            required: false,
+          },
+        ],
+        required: false,
+      },
+    ],
     order: [['createdAt', 'DESC']],
+    distinct: true,
     limit,
     offset,
   });

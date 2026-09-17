@@ -34,8 +34,8 @@ async function listPublicJobs(query = {}) {
     ];
   }
 
-  if (query.state) {
-    where.state = query.state;
+  if (query.category && query.category !== 'ALL') {
+    where.category = query.category;
   }
 
   if (query.qualification) {
@@ -136,7 +136,7 @@ async function checkJobEligibility(jobId, userId) {
 /**
  * Admin: List all jobs (including drafts and archived)
  */
-async function listAdminJobs(query = {}) {
+async function listAdminJobs(query = {}, actor = null) {
   const { page, limit, offset } = getPaginationParams(query);
   const where = {};
 
@@ -146,6 +146,12 @@ async function listAdminJobs(query = {}) {
 
   if (query.isPublished !== undefined) {
     where.isPublished = query.isPublished === 'true';
+  }
+
+  if (query.createdById) {
+    where.createdById = query.createdById;
+  } else if (query.myOnly === 'true' && actor) {
+    where.createdById = actor.id;
   }
 
   if (query.search) {
@@ -219,6 +225,7 @@ function normalizeJobData(jobData, attachmentUrl) {
     tables: Array.isArray(tables) ? tables : [],
     eligibleDegrees: Array.isArray(eligibleDegrees) ? eligibleDegrees : [],
     eligibleBranches: Array.isArray(eligibleBranches) ? eligibleBranches : [],
+    category: jobData.category || 'Central',
     isPublished: jobData.isPublished !== undefined ? Boolean(jobData.isPublished) : true,
     status:
       jobData.status ||
@@ -228,7 +235,7 @@ function normalizeJobData(jobData, attachmentUrl) {
 }
 
 /**
- * Admin: Create a new job
+ * Admin / Agent: Create a new job
  */
 async function createJob(jobData, attachmentBuffer, actor) {
   let attachmentUrl = null;
@@ -237,6 +244,9 @@ async function createJob(jobData, attachmentBuffer, actor) {
   }
 
   const normalized = normalizeJobData(jobData, attachmentUrl);
+  if (actor && actor.id) {
+    normalized.createdById = actor.id;
+  }
   const job = await Job.create(normalized);
 
   const isAgent = actor && actor.role === 'AGENT';
@@ -259,6 +269,13 @@ async function updateJob(jobId, jobData, attachmentBuffer, actor) {
   const job = await Job.findByPk(jobId);
   if (!job) {
     throw new AppError('Job not found', 404);
+  }
+
+  // Agents can only edit/update recruitments that they created only
+  if (actor && actor.role === 'AGENT') {
+    if (job.createdById && job.createdById !== actor.id) {
+      throw new AppError('Agents are only authorized to edit recruitments created by themselves', 403);
+    }
   }
 
   let attachmentUrl = job.attachmentUrl;
@@ -290,6 +307,13 @@ async function setJobPublishStatus(jobId, isPublished, actor) {
     throw new AppError('Job not found', 404);
   }
 
+  // Agents can only manage recruitments that they created only
+  if (actor && actor.role === 'AGENT') {
+    if (job.createdById && job.createdById !== actor.id) {
+      throw new AppError('Agents are only authorized to manage recruitments created by themselves', 403);
+    }
+  }
+
   job.isPublished = Boolean(isPublished);
   job.status = isPublished ? JOB_STATUSES.PUBLISHED : JOB_STATUSES.DRAFT;
   await job.save();
@@ -316,6 +340,13 @@ async function archiveJob(jobId, actor) {
     throw new AppError('Job not found', 404);
   }
 
+  // Agents can only manage recruitments that they created only
+  if (actor && actor.role === 'AGENT') {
+    if (job.createdById && job.createdById !== actor.id) {
+      throw new AppError('Agents are only authorized to manage recruitments created by themselves', 403);
+    }
+  }
+
   job.status = JOB_STATUSES.ARCHIVED;
   job.isPublished = false;
   await job.save();
@@ -333,9 +364,13 @@ async function archiveJob(jobId, actor) {
 }
 
 /**
- * Admin: Delete a job
+ * Admin: Delete a job (Strictly Admin only, Agents forbidden)
  */
-async function deleteJob(jobId) {
+async function deleteJob(jobId, actor) {
+  if (actor && actor.role === 'AGENT') {
+    throw new AppError('Agents do not have permission to delete recruitments', 403);
+  }
+
   const job = await Job.findByPk(jobId);
   if (!job) {
     throw new AppError('Job not found', 404);

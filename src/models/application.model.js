@@ -20,7 +20,7 @@ const Application = sequelize.define(
     },
     jobId: {
       type: DataTypes.UUID,
-      allowNull: false,
+      allowNull: true,
     },
     assistanceRequestId: {
       type: DataTypes.UUID,

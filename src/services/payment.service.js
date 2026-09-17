@@ -14,32 +14,38 @@ const { AppError } = require('../middleware/error.middleware');
 /**
  * Create a new payment record
  */
-async function createPayment({
-  userId,
-  paymentType,
-  officialFee = 0,
-  serviceFee = 0,
-  totalAmount,
-  applicationId = null,
-  assistanceRequestId = null,
-  membershipId = null,
-  provider = PAYMENT_PROVIDERS.MOCK,
-}) {
-  const calculatedTotal = totalAmount !== undefined ? totalAmount : officialFee + serviceFee;
-
-  const payment = await Payment.create({
+async function createPayment(
+  {
     userId,
     paymentType,
-    officialFee,
-    serviceFee,
-    totalAmount: calculatedTotal,
-    currency: 'INR',
-    provider,
-    status: PAYMENT_STATUSES.PENDING,
-    applicationId,
-    assistanceRequestId,
-    membershipId,
-  });
+    officialFee = 0,
+    serviceFee = 0,
+    totalAmount,
+    applicationId = null,
+    assistanceRequestId = null,
+    membershipId = null,
+    provider = PAYMENT_PROVIDERS.MOCK,
+  },
+  options = {}
+) {
+  const calculatedTotal = totalAmount !== undefined ? totalAmount : officialFee + serviceFee;
+
+  const payment = await Payment.create(
+    {
+      userId,
+      paymentType,
+      officialFee,
+      serviceFee,
+      totalAmount: calculatedTotal,
+      currency: 'INR',
+      provider,
+      status: PAYMENT_STATUSES.PENDING,
+      applicationId,
+      assistanceRequestId,
+      membershipId,
+    },
+    options
+  );
 
   return payment;
 }

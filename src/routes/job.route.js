@@ -49,6 +49,6 @@ router.put(
 
 router.patch('/:id/publish', authenticate, requireAgentOrAdmin, jobController.publishJob);
 router.patch('/:id/archive', authenticate, requireAgentOrAdmin, jobController.archiveJob);
-router.delete('/:id', authenticate, requireAgentOrAdmin, jobController.deleteJob);
+router.delete('/:id', authenticate, requireAdmin, jobController.deleteJob);
 
 module.exports = router;

@@ -60,7 +60,7 @@ async function checkJobEligibility(req, res, next) {
 
 async function listAdminJobs(req, res, next) {
   try {
-    const { jobs, meta } = await jobService.listAdminJobs(req.query);
+    const { jobs, meta } = await jobService.listAdminJobs(req.query, req.user);
     return sendSuccess(res, {
       statusCode: 200,
       message: 'Admin recruitment list fetched successfully',
@@ -129,7 +129,7 @@ async function archiveJob(req, res, next) {
 
 async function deleteJob(req, res, next) {
   try {
-    await jobService.deleteJob(req.params.id);
+    await jobService.deleteJob(req.params.id, req.user);
     return sendSuccess(res, {
       statusCode: 200,
       message: 'Job deleted successfully',

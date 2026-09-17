@@ -136,19 +136,22 @@ async function requestAssistance({
 
     // 3. Create payment record
     // Cashfree payment gateway verification is pending: direct confirmation bypass for standard booking
-    const payment = await createPayment({
-      userId,
-      paymentType: PAYMENT_TYPES.ASSISTANCE,
-      officialFee,
-      serviceFee,
-      totalAmount,
-      applicationId: application.id,
-      assistanceRequestId: assistanceRequest.id,
-    });
+    const payment = await createPayment(
+      {
+        userId,
+        paymentType: PAYMENT_TYPES.ASSISTANCE,
+        officialFee,
+        serviceFee,
+        totalAmount,
+        applicationId: application.id,
+        assistanceRequestId: assistanceRequest.id,
+      },
+      { transaction: t }
+    );
 
     if (!isUrgent) {
       payment.status = 'SUCCESS';
-      await payment.save();
+      await payment.save({ transaction: t });
     }
 
     return {

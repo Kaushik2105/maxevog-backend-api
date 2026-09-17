@@ -92,6 +92,18 @@ Application.belongsTo(Job, {
   as: 'job',
 });
 
+Job.belongsTo(User, {
+  foreignKey: 'createdById',
+  as: 'creator',
+  onDelete: 'SET NULL',
+});
+
+AuditLog.belongsTo(User, {
+  foreignKey: 'actorId',
+  as: 'actor',
+  onDelete: 'SET NULL',
+});
+
 Application.belongsTo(User, {
   foreignKey: 'assignedAgentId',
   as: 'assignedAgent',
@@ -245,6 +257,12 @@ async function syncDatabase(options = {}) {
         ALTER TABLE "jobs" ADD COLUMN IF NOT EXISTS "eligibleBranches" JSONB DEFAULT '[]'::jsonb;
       `);
       await sequelize.query(`
+        ALTER TABLE "jobs" ADD COLUMN IF NOT EXISTS "createdById" UUID;
+      `);
+      await sequelize.query(`
+        ALTER TABLE "jobs" ADD COLUMN IF NOT EXISTS "category" VARCHAR(100) DEFAULT 'Central';
+      `);
+      await sequelize.query(`
         ALTER TABLE "assistance_requests" ADD COLUMN IF NOT EXISTS "bookingDate" DATE;
       `);
       await sequelize.query(`
@@ -258,6 +276,12 @@ async function syncDatabase(options = {}) {
       `);
       await sequelize.query(`
         ALTER TABLE "assistance_requests" ADD COLUMN IF NOT EXISTS "priorityFee" FLOAT DEFAULT 0.0;
+      `);
+      await sequelize.query(`
+        ALTER TABLE "assistance_requests" ALTER COLUMN "jobId" DROP NOT NULL;
+      `);
+      await sequelize.query(`
+        ALTER TABLE "applications" ALTER COLUMN "jobId" DROP NOT NULL;
       `);
     } catch (e) {
       // Fall through to standard sync if tables do not exist yet

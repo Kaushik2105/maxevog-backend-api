@@ -62,13 +62,35 @@ async function getUserApplications(userId, query = {}) {
  * Get application by ID with strict ownership validation
  */
 async function getApplicationById(id, user) {
+  const { Profile } = require('../models');
   const application = await Application.findByPk(id, {
     include: [
       { model: Job, as: 'job' },
-      { model: AssistanceRequest, as: 'assistanceRequest' },
+      {
+        model: AssistanceRequest,
+        as: 'assistanceRequest',
+        include: [
+          {
+            model: User,
+            as: 'assignedAgent',
+            attributes: ['id', 'email', 'role'],
+            include: [{ model: Profile, as: 'profile' }],
+          },
+        ],
+      },
       { model: Payment, as: 'payment' },
-      { model: User, as: 'assignedAgent', attributes: ['id', 'email', 'role'] },
-      { model: User, as: 'user', attributes: ['id', 'email'] },
+      {
+        model: User,
+        as: 'assignedAgent',
+        attributes: ['id', 'email', 'role'],
+        include: [{ model: Profile, as: 'profile' }],
+      },
+      {
+        model: User,
+        as: 'user',
+        attributes: ['id', 'email'],
+        include: [{ model: Profile, as: 'profile' }],
+      },
     ],
   });
 
@@ -77,17 +99,28 @@ async function getApplicationById(id, user) {
   }
 
   const isOwner = application.userId === user.id;
-  const isAssignedAgent = application.assignedAgentId === user.id;
-  const isAdmin = user.role === 'ADMIN';
+  const isAssignedAgent = application.assignedAgentId === user.id || application.assistanceRequest?.assignedAgentId === user.id;
+  const isAgentOrAdmin = user.role === 'AGENT' || user.role === 'ADMIN';
 
-  if (!isOwner && !isAssignedAgent && !isAdmin) {
+  if (!isOwner && !isAssignedAgent && !isAgentOrAdmin) {
     throw new AppError('Forbidden: Access denied to this application', 403);
   }
 
   const meta = typeof application.metadata === 'string'
     ? JSON.parse(application.metadata || '{}')
     : (application.metadata || {});
-  application.setDataValue('documents', meta.documents || []);
+  const docs = Array.isArray(meta.documents) ? meta.documents : [];
+  application.setDataValue('documents', docs);
+
+  // Set assistanceSession compatibility object for client components
+  if (application.assistanceRequest) {
+    const ar = typeof application.assistanceRequest.toJSON === 'function'
+      ? application.assistanceRequest.toJSON()
+      : application.assistanceRequest;
+    ar.meetingUrl = ar.meetingLink || ar.meetingUrl || null;
+    ar.agentName = ar.assignedAgent?.profile?.fullName || ar.assignedAgent?.email || application.assignedAgent?.profile?.fullName || 'Senior Desk Officer';
+    application.setDataValue('assistanceSession', ar);
+  }
 
   return application;
 }

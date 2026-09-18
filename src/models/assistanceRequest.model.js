@@ -73,6 +73,15 @@ const AssistanceRequest = sequelize.define(
       type: DataTypes.STRING,
       allowNull: true,
     },
+    meetingUrl: {
+      type: DataTypes.VIRTUAL,
+      get() {
+        return this.getDataValue('meetingLink');
+      },
+      set(val) {
+        this.setDataValue('meetingLink', val);
+      },
+    },
     notes: {
       type: DataTypes.TEXT,
       allowNull: true,

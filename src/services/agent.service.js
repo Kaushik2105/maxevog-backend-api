@@ -89,13 +89,32 @@ async function getAgentSessions(agentId, query = {}) {
         include: [{ model: Profile, as: 'profile' }],
       },
       { model: Job, as: 'job' },
+      { model: Application, as: 'application' },
     ],
     order: [['createdAt', 'DESC']],
     limit,
     offset,
   });
 
-  return { sessions: rows, meta: buildPaginationMeta({ count, page, limit }) };
+  const sessions = rows.map((r) => {
+    const s = r.toJSON();
+    s.User = s.user;
+    s.meetingUrl = s.meetingLink || s.meetingUrl || '';
+
+    if (s.application) {
+      const meta = typeof s.application.metadata === 'string'
+        ? JSON.parse(s.application.metadata || '{}')
+        : (s.application.metadata || {});
+      s.documents = Array.isArray(meta.documents) ? meta.documents : [];
+      s.application.documents = s.documents;
+    } else {
+      s.documents = [];
+    }
+
+    return s;
+  });
+
+  return { sessions, meta: buildPaginationMeta({ count, page, limit }) };
 }
 
 /**
@@ -201,7 +220,11 @@ async function updateSession(sessionId, agentId, updateData, userRole) {
   }
 
   if (updateData.status) session.status = updateData.status;
-  if (updateData.meetingUrl !== undefined) session.meetingUrl = updateData.meetingUrl;
+  const link = updateData.meetingLink !== undefined ? updateData.meetingLink : updateData.meetingUrl;
+  if (link !== undefined) {
+    session.meetingLink = link;
+    session.meetingUrl = link;
+  }
   if (updateData.notes !== undefined) session.notes = updateData.notes;
 
   await session.save();

@@ -51,7 +51,7 @@ async function getApplicationDetails(req, res, next) {
 
 async function authorizeSubmission(req, res, next) {
   try {
-    const application = await applicationService.authorizeSubmission(req.params.id, req.user.id);
+    const application = await applicationService.authorizeSubmission(req.params.id, req.user.id, req.body);
     return sendSuccess(res, {
       statusCode: 200,
       message: 'Submission explicitly authorized by applicant',

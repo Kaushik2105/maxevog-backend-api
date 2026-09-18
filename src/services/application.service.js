@@ -243,14 +243,26 @@ async function deleteApplicationDocument(applicationId, docId, user) {
 /**
  * Student explicitly authorizes final submission
  */
-async function authorizeSubmission(id, userId) {
+async function authorizeSubmission(id, userId, body = {}) {
   const application = await Application.findOne({ where: { id, userId } });
   if (!application) {
     throw new AppError('Application not found', 404);
   }
 
+  const remarks = body.remarks || 'Candidate verified entered data & authorized official submission';
+
   application.submissionAuthorizedAt = new Date();
   application.status = APPLICATION_STATUSES.SUBMISSION_AUTHORIZED;
+
+  const history = Array.isArray(application.statusHistory) ? [...application.statusHistory] : [];
+  history.push({
+    status: APPLICATION_STATUSES.SUBMISSION_AUTHORIZED,
+    timestamp: new Date().toISOString(),
+    updatedBy: userId,
+    remarks,
+  });
+  application.statusHistory = history;
+
   await application.save();
 
   await logAction({
@@ -259,6 +271,10 @@ async function authorizeSubmission(id, userId) {
     action: AUDIT_ACTIONS.APPLICATION_SUBMISSION_AUTHORIZED,
     entityType: 'Application',
     entityId: application.id,
+    metadata: {
+      remarks,
+      verificationConfirmed: true,
+    },
   });
 
   return application;

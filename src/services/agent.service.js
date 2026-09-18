@@ -12,7 +12,7 @@ const {
   Payment,
 } = require('../models');
 const { ASSISTANCE_STATUSES } = require('../constants/assistance.constant');
-const { APPLICATION_STATUSES } = require('../constants/application.constant');
+const { APPLICATION_STATUSES, ALL_APPLICATION_STATUSES } = require('../constants/application.constant');
 const { getPaginationParams, buildPaginationMeta } = require('../utils/pagination.util');
 const { AppError } = require('../middleware/error.middleware');
 
@@ -299,7 +299,7 @@ async function updateApplicationStage(applicationId, agentId, { status, remarks 
   }
 
   application.status = normalizedStatus;
-  const history = Array.isArray(application.statusHistory) ? application.statusHistory : [];
+  const history = Array.isArray(application.statusHistory) ? [...application.statusHistory] : [];
   history.push({
     status: normalizedStatus,
     timestamp: new Date().toISOString(),
@@ -309,6 +309,25 @@ async function updateApplicationStage(applicationId, agentId, { status, remarks 
   application.statusHistory = history;
 
   await application.save();
+
+  try {
+    const { logAction } = require('./audit.service');
+    const { AUDIT_ACTIONS } = require('../constants/audit.constant');
+    await logAction({
+      actorId: agentId,
+      actorRole: userRole || 'AGENT',
+      action: AUDIT_ACTIONS.APPLICATION_STATUS_CHANGED,
+      entityType: 'Application',
+      entityId: application.id,
+      metadata: {
+        newStatus: normalizedStatus,
+        remarks: remarks || `Advanced to ${normalizedStatus}`,
+      },
+    });
+  } catch (auditErr) {
+    console.warn('Could not log audit action for application stage update:', auditErr.message);
+  }
+
   return application;
 }
 

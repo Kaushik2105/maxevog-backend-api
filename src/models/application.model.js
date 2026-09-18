@@ -75,6 +75,38 @@ const Application = sequelize.define(
         this.setDataValue('metadata', typeof val === 'object' ? JSON.stringify(val) : val);
       },
     },
+    statusHistory: {
+      type: DataTypes.VIRTUAL,
+      get() {
+        const meta = this.getDataValue('metadata');
+        let parsed = null;
+        if (typeof meta === 'object' && meta !== null) {
+          parsed = meta;
+        } else if (typeof meta === 'string') {
+          try {
+            parsed = JSON.parse(meta);
+          } catch {
+            parsed = null;
+          }
+        }
+        return Array.isArray(parsed?.statusHistory) ? parsed.statusHistory : [];
+      },
+      set(val) {
+        const raw = this.getDataValue('metadata');
+        let parsed = {};
+        if (typeof raw === 'object' && raw !== null) {
+          parsed = { ...raw };
+        } else if (typeof raw === 'string') {
+          try {
+            parsed = JSON.parse(raw);
+          } catch {
+            parsed = {};
+          }
+        }
+        parsed.statusHistory = Array.isArray(val) ? val : [];
+        this.setDataValue('metadata', JSON.stringify(parsed));
+      },
+    },
   },
   {
     tableName: 'applications',

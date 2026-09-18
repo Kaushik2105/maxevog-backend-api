@@ -241,29 +241,72 @@ async function updateSession(sessionId, agentId, updateData, userRole) {
  * Update application progress stage
  */
 async function updateApplicationStage(applicationId, agentId, { status, remarks }, userRole) {
-  const application = await Application.findByPk(applicationId, {
-    include: [{ model: User, as: 'user' }, { model: Job, as: 'job' }],
+  let application = await Application.findByPk(applicationId, {
+    include: [
+      { model: User, as: 'user' },
+      { model: Job, as: 'job' },
+      { model: AssistanceRequest, as: 'assistanceRequest' },
+    ],
   });
 
   if (!application) {
-    throw new AppError('Application not found', 404);
+    // Try finding via AssistanceRequest if session id was passed
+    const ar = await AssistanceRequest.findByPk(applicationId);
+    if (ar) {
+      if (ar.applicationId) {
+        application = await Application.findByPk(ar.applicationId, {
+          include: [
+            { model: User, as: 'user' },
+            { model: Job, as: 'job' },
+            { model: AssistanceRequest, as: 'assistanceRequest' },
+          ],
+        });
+      } else {
+        application = await Application.findOne({
+          where: { assistanceRequestId: ar.id },
+          include: [
+            { model: User, as: 'user' },
+            { model: Job, as: 'job' },
+            { model: AssistanceRequest, as: 'assistanceRequest' },
+          ],
+        });
+      }
+    }
   }
 
-  if (application.assignedAgentId !== agentId && userRole !== 'ADMIN') {
+  if (!application) {
+    throw new AppError('Application record not found for stage update', 404);
+  }
+
+  const isAssigned = application.assignedAgentId === agentId || 
+                     application.assistanceRequest?.assignedAgentId === agentId;
+
+  if (!isAssigned && userRole !== 'ADMIN') {
     throw new AppError('Unauthorized: You are not assigned to this application', 403);
   }
 
-  application.status = status;
-  if (remarks) {
-    const history = application.statusHistory || [];
-    history.push({
-      status,
-      timestamp: new Date().toISOString(),
-      updatedBy: agentId,
-      remarks,
-    });
-    application.statusHistory = history;
+  if (!application.assignedAgentId && agentId) {
+    application.assignedAgentId = agentId;
   }
+
+  let normalizedStatus = (status || '').toUpperCase();
+  if (normalizedStatus === 'CANDIDATE_AUTHORIZATION_PENDING' || normalizedStatus === 'CANDIDATE_CONSENT') {
+    normalizedStatus = APPLICATION_STATUSES.CANDIDATE_AUTHORIZATION_PENDING;
+  }
+
+  if (!ALL_APPLICATION_STATUSES.includes(normalizedStatus)) {
+    throw new AppError(`Invalid application status: ${status}`, 400);
+  }
+
+  application.status = normalizedStatus;
+  const history = Array.isArray(application.statusHistory) ? application.statusHistory : [];
+  history.push({
+    status: normalizedStatus,
+    timestamp: new Date().toISOString(),
+    updatedBy: agentId,
+    remarks: remarks || `Advanced to ${normalizedStatus}`,
+  });
+  application.statusHistory = history;
 
   await application.save();
   return application;

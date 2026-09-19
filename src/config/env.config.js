@@ -34,6 +34,7 @@ const envConfig = Object.freeze({
   emailjs: {
     serviceId: process.env.EMAILJS_SERVICE_ID || '',
     templateId: process.env.EMAILJS_TEMPLATE_ID || '',
+    jobAlertTemplateId: process.env.EMAILJS_JOB_ALERT_TEMPLATE_ID || process.env.EMAILJS_TEMPLATE_ID || '',
     publicKey: process.env.EMAILJS_PUBLIC_KEY || '',
     privateKey: process.env.EMAILJS_PRIVATE_KEY || '',
   },
@@ -50,6 +51,7 @@ const envConfig = Object.freeze({
     emailProvider: process.env.EMAIL_PROVIDER || 'mock',
     emailApiKey: process.env.EMAIL_API_KEY || '',
     telegramBotToken: process.env.TELEGRAM_BOT_TOKEN || '',
+    telegramBotUsername: (process.env.TELEGRAM_BOT_USERNAME || '').replace(/^@/, ''),
   },
   business: {
     defaultAssistanceFee: parseFloat(process.env.DEFAULT_ASSISTANCE_FEE) || 69,

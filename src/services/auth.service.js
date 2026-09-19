@@ -353,7 +353,20 @@ async function getCurrentUser(userId) {
     }
   }
 
-  return user.toJSON();
+  const userObj = user.toJSON();
+
+  // Attach Pro status & subscription details
+  try {
+    const { getProStatus } = require('./proSubscription.service');
+    const proStatus = await getProStatus(userId);
+    userObj.isProMember = proStatus.isPro;
+    userObj.proSubscription = proStatus.subscription;
+    userObj.assistanceCredits = proStatus.assistanceCredits;
+  } catch (err) {
+    userObj.isProMember = false;
+  }
+
+  return userObj;
 }
 
 /**

@@ -74,19 +74,25 @@ async function requestAssistance({
     throw new AppError('You already have an active assistance request for this recruitment/examination', 400);
   }
 
-  const { hasActiveMembership: isPro } = await getCurrentMembership(userId);
+  const proSubscriptionService = require('./proSubscription.service');
+  const proStatus = await proSubscriptionService.getProStatus(userId);
+  const hasFreeCredit = proStatus.isPro && proStatus.assistanceCredits.available;
 
-  // Urgent vs Standard fee calculation
-  let serviceFee = isPro ? 0 : (envConfig.business.defaultAssistanceFee || 69);
+  // Urgent vs Standard fee calculation (1 Free Pro Assistance Credit covers the ₹69 service fee)
+  let serviceFee = hasFreeCredit ? 0 : (envConfig.business.defaultAssistanceFee || 69);
   let priorityFee = 0;
 
   if (isUrgent) {
     priorityFee = 30; // ₹30 urgent deadline priority surcharge
   }
 
-  const totalAmount = serviceFee + priorityFee; // ₹69 standard, ₹99 urgent
+  const totalAmount = serviceFee + priorityFee; // ₹0 standard with Pro Credit, ₹30 urgent with Pro Credit
 
   return sequelize.transaction(async (t) => {
+    if (hasFreeCredit) {
+      await proSubscriptionService.consumeAssistanceCredit(userId, t);
+    }
+
     let scheduledDateTime = null;
     let initialStatus = ASSISTANCE_STATUSES.SCHEDULED;
     let initialAppStatus = APPLICATION_STATUSES.SCHEDULED;

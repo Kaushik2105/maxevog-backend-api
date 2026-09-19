@@ -19,6 +19,10 @@ const Feedback = require('./feedback.model');
 const AuditLog = require('./auditLog.model');
 const Otp = require('./otp.model');
 const DailyAssistanceLimit = require('./dailyAssistanceLimit.model');
+const { ProSubscription } = require('./proSubscription.model');
+const ProJobMatch = require('./proJobMatch.model');
+const { TrackedJob } = require('./trackedJob.model');
+const { NotificationLog } = require('./notificationLog.model');
 
 // ==========================================
 // User & Profile
@@ -223,6 +227,79 @@ Feedback.belongsTo(User, {
   as: 'user',
 });
 
+// ==========================================
+// Pro Club V1 Associations
+// ==========================================
+User.hasOne(ProSubscription, {
+  foreignKey: 'userId',
+  as: 'proSubscription',
+  onDelete: 'CASCADE',
+});
+ProSubscription.belongsTo(User, {
+  foreignKey: 'userId',
+  as: 'user',
+});
+
+User.hasMany(ProJobMatch, {
+  foreignKey: 'userId',
+  as: 'proMatches',
+  onDelete: 'CASCADE',
+});
+ProJobMatch.belongsTo(User, {
+  foreignKey: 'userId',
+  as: 'user',
+});
+
+Job.hasMany(ProJobMatch, {
+  foreignKey: 'jobId',
+  as: 'proMatches',
+  onDelete: 'CASCADE',
+});
+ProJobMatch.belongsTo(Job, {
+  foreignKey: 'jobId',
+  as: 'job',
+});
+
+User.hasMany(TrackedJob, {
+  foreignKey: 'userId',
+  as: 'trackedJobs',
+  onDelete: 'CASCADE',
+});
+TrackedJob.belongsTo(User, {
+  foreignKey: 'userId',
+  as: 'user',
+});
+
+Job.hasMany(TrackedJob, {
+  foreignKey: 'jobId',
+  as: 'trackedJobs',
+  onDelete: 'CASCADE',
+});
+TrackedJob.belongsTo(Job, {
+  foreignKey: 'jobId',
+  as: 'job',
+});
+
+User.hasMany(NotificationLog, {
+  foreignKey: 'userId',
+  as: 'notificationLogs',
+  onDelete: 'CASCADE',
+});
+NotificationLog.belongsTo(User, {
+  foreignKey: 'userId',
+  as: 'user',
+});
+
+Job.hasMany(NotificationLog, {
+  foreignKey: 'jobId',
+  as: 'notificationLogs',
+  onDelete: 'CASCADE',
+});
+NotificationLog.belongsTo(Job, {
+  foreignKey: 'jobId',
+  as: 'job',
+});
+
 /**
  * Sync all models with database
  * @param {object} options
@@ -283,6 +360,15 @@ async function syncDatabase(options = {}) {
       await sequelize.query(`
         ALTER TABLE "applications" ALTER COLUMN "jobId" DROP NOT NULL;
       `);
+      await sequelize.query(`
+        ALTER TABLE "notification_preferences" ADD COLUMN IF NOT EXISTS "newMatchingJobAlerts" BOOLEAN DEFAULT TRUE;
+      `);
+      await sequelize.query(`
+        ALTER TABLE "notification_preferences" ADD COLUMN IF NOT EXISTS "telegramVerificationCode" VARCHAR(255);
+      `);
+      await sequelize.query(`
+        ALTER TABLE "notification_preferences" ADD COLUMN IF NOT EXISTS "inAppAlerts" BOOLEAN DEFAULT TRUE;
+      `);
     } catch (e) {
       // Fall through to standard sync if tables do not exist yet
     }
@@ -305,6 +391,20 @@ async function syncDatabase(options = {}) {
         }
         if (!colNames.includes('priorityFee')) {
           await sequelize.query('ALTER TABLE assistance_requests ADD COLUMN priorityFee REAL DEFAULT 0.0;');
+        }
+      }
+
+      const [prefResults] = await sequelize.query("PRAGMA table_info('notification_preferences');");
+      if (prefResults && prefResults.length > 0) {
+        const prefCols = prefResults.map((r) => r.name);
+        if (!prefCols.includes('newMatchingJobAlerts')) {
+          await sequelize.query('ALTER TABLE notification_preferences ADD COLUMN newMatchingJobAlerts INTEGER DEFAULT 1;');
+        }
+        if (!prefCols.includes('telegramVerificationCode')) {
+          await sequelize.query('ALTER TABLE notification_preferences ADD COLUMN telegramVerificationCode TEXT;');
+        }
+        if (!prefCols.includes('inAppAlerts')) {
+          await sequelize.query('ALTER TABLE notification_preferences ADD COLUMN inAppAlerts INTEGER DEFAULT 1;');
         }
       }
     } catch (e) {
@@ -334,4 +434,8 @@ module.exports = {
   AuditLog,
   Otp,
   DailyAssistanceLimit,
+  ProSubscription,
+  ProJobMatch,
+  TrackedJob,
+  NotificationLog,
 };

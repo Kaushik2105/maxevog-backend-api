@@ -259,6 +259,14 @@ async function createJob(jobData, attachmentBuffer, actor) {
     metadata: { title: job.title, organization: job.organization },
   });
 
+  // Trigger Pro Club matching if job is published
+  if (job.isPublished) {
+    try {
+      const { matchJobForProCandidates } = require('./jobMatching.service');
+      matchJobForProCandidates(job.id).catch((err) => logger.error(`[JobService] Pro matching error on create: ${err.message}`));
+    } catch (e) {}
+  }
+
   return job;
 }
 
@@ -278,6 +286,8 @@ async function updateJob(jobId, jobData, attachmentBuffer, actor) {
     }
   }
 
+  const oldDeadline = job.applicationLastDate;
+
   let attachmentUrl = job.attachmentUrl;
   if (attachmentBuffer) {
     attachmentUrl = await uploadDocument(attachmentBuffer, 'job_notifications', `job_${jobId}`);
@@ -285,6 +295,24 @@ async function updateJob(jobId, jobData, attachmentBuffer, actor) {
 
   const normalized = normalizeJobData(jobData, attachmentUrl);
   await job.update(normalized);
+
+  // Sync deadline extensions / updates to tracked jobs
+  if (normalized.applicationLastDate && normalized.applicationLastDate !== oldDeadline) {
+    try {
+      const { syncUpdatedJobDeadline } = require('./jobTracking.service');
+      syncUpdatedJobDeadline(job.id, normalized.applicationLastDate).catch((err) =>
+        logger.error(`[JobService] Deadline sync error: ${err.message}`)
+      );
+    } catch (e) {}
+  }
+
+  // Re-run matching for active Pro candidates
+  if (job.isPublished) {
+    try {
+      const { matchJobForProCandidates } = require('./jobMatching.service');
+      matchJobForProCandidates(job.id).catch((err) => logger.error(`[JobService] Pro matching error on update: ${err.message}`));
+    } catch (e) {}
+  }
 
   const isAgent = actor && actor.role === 'AGENT';
   await logAction({
@@ -317,6 +345,13 @@ async function setJobPublishStatus(jobId, isPublished, actor) {
   job.isPublished = Boolean(isPublished);
   job.status = isPublished ? JOB_STATUSES.PUBLISHED : JOB_STATUSES.DRAFT;
   await job.save();
+
+  if (job.isPublished) {
+    try {
+      const { matchJobForProCandidates } = require('./jobMatching.service');
+      matchJobForProCandidates(job.id).catch((err) => logger.error(`[JobService] Pro matching error on publish: ${err.message}`));
+    } catch (e) {}
+  }
 
   const isAgent = actor && actor.role === 'AGENT';
   await logAction({

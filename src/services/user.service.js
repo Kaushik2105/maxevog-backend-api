@@ -83,6 +83,16 @@ async function updateProfile(userId, profileData, files = {}) {
   profile.profileCompletionPercentage = profile.calculateCompletion();
   await profile.save();
 
+  // If candidate is a Pro member, refresh their matched jobs feed with latest profile data
+  try {
+    const { getProStatus } = require('./proSubscription.service');
+    const proStatus = await getProStatus(userId);
+    if (proStatus.isPro) {
+      const { matchAllJobsForCandidate } = require('./jobMatching.service');
+      matchAllJobsForCandidate(userId).catch(() => {});
+    }
+  } catch (e) {}
+
   return profile;
 }
 
@@ -110,7 +120,10 @@ async function updatePreferences(userId, prefsData) {
     'emailEnabled',
     'telegramEnabled',
     'telegramChatId',
+    'telegramVerificationCode',
+    'newMatchingJobAlerts',
     'deadlineAlerts',
+    'inAppAlerts',
     'admitCardAlerts',
     'examAlerts',
     'resultAlerts',

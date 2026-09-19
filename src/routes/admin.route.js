@@ -76,5 +76,13 @@ router.put('/assistance/daily-limits', async (req, res, next) => {
 // System Audit Logs
 router.get('/audit-logs', adminController.listAuditLogs);
 
+// Pro Club V1 Management & Governance
+const adminProController = require('../controllers/adminPro.controller');
+router.get('/pro/stats', adminProController.getStats);
+router.get('/pro/subscribers', adminProController.listSubscribers);
+router.get('/pro/notification-logs', adminProController.listNotificationLogs);
+router.post('/pro/trigger-reminders', adminProController.triggerDeadlineReminders);
+router.post('/pro/trigger-matching/:jobId', adminProController.triggerJobMatching);
+
 module.exports = router;
 

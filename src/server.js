@@ -32,6 +32,24 @@ async function startServer() {
       logger.info(`WebSocket real-time engine initialized`);
       logger.info(`Swagger Docs: ${baseUrl}/docs`);
       logger.info(`Health Check: ${baseUrl}/health`);
+
+      // Initialize Pro Club Deadline Reminder scheduler
+      if (!envConfig.app.isTest) {
+        try {
+          const { runDeadlineRemindersScheduler } = require('./services/proNotification.service');
+          // Run on startup after 15 seconds
+          setTimeout(() => {
+            runDeadlineRemindersScheduler().catch((e) => logger.error(`[ProReminders] Initial run error: ${e.message}`));
+          }, 15000);
+          // Run every 6 hours
+          setInterval(() => {
+            runDeadlineRemindersScheduler().catch((e) => logger.error(`[ProReminders] Scheduled run error: ${e.message}`));
+          }, 6 * 60 * 60 * 1000);
+          logger.info(`[Pro Club] Automated deadline protection scheduler initialized.`);
+        } catch (e) {
+          logger.error(`[Pro Club] Scheduler initialization error: ${e.message}`);
+        }
+      }
     });
 
     // Graceful Shutdown

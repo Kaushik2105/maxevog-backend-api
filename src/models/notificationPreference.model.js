@@ -29,7 +29,19 @@ const NotificationPreference = sequelize.define(
       type: DataTypes.STRING,
       allowNull: true,
     },
+    telegramVerificationCode: {
+      type: DataTypes.STRING,
+      allowNull: true,
+    },
+    newMatchingJobAlerts: {
+      type: DataTypes.BOOLEAN,
+      defaultValue: true,
+    },
     deadlineAlerts: {
+      type: DataTypes.BOOLEAN,
+      defaultValue: true,
+    },
+    inAppAlerts: {
       type: DataTypes.BOOLEAN,
       defaultValue: true,
     },

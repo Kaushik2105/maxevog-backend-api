@@ -18,6 +18,7 @@ const feedbackRoutes = require('./feedback.route');
 const paymentRoutes = require('./payment.route');
 const adminRoutes = require('./admin.route');
 const agentRoutes = require('./agent.route');
+const proRoutes = require('./pro.route');
 
 // Standard API routes
 router.use('/auth', authRoutes);
@@ -28,6 +29,7 @@ router.use('/admit-cards', admitCardRoutes);
 router.use('/applications', applicationRoutes);
 router.use('/assistance', assistanceRoutes);
 router.use('/membership', membershipRoutes);
+router.use('/pro', proRoutes);
 router.use('/notifications', notificationRoutes);
 router.use('/feedback', feedbackRoutes);
 router.use('/payments', paymentRoutes);

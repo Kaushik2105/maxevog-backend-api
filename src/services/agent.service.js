@@ -229,6 +229,13 @@ async function updateSession(sessionId, agentId, updateData, userRole) {
 
   await session.save();
 
+  try {
+    const { emitAssistanceUpdate } = require('./socket.service');
+    emitAssistanceUpdate(session.id, session.toJSON());
+  } catch (socketErr) {
+    // Non-blocking socket notification
+  }
+
   // If completed, automatically assign next queued applicant if one exists
   if (session.status === ASSISTANCE_STATUSES.COMPLETED) {
     await dispatchNextQueuedRequest(agentId);
@@ -309,6 +316,13 @@ async function updateApplicationStage(applicationId, agentId, { status, remarks 
   application.statusHistory = history;
 
   await application.save();
+
+  try {
+    const { emitApplicationUpdate } = require('./socket.service');
+    emitApplicationUpdate(application.id, application.toJSON());
+  } catch (socketErr) {
+    // Non-blocking socket notification
+  }
 
   try {
     const { logAction } = require('./audit.service');

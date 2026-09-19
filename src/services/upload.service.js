@@ -2,6 +2,7 @@
  * Upload Service
  * Manages document and avatar uploads to Cloudinary and returns secure URLs.
  */
+const path = require('path');
 const cloudinary = require('../config/cloudinary.config');
 const envConfig = require('../config/env.config');
 const logger = require('../utils/logger.util');
@@ -127,10 +128,11 @@ async function uploadDocument(buffer, category = 'documents', identifier = 'doc'
  * @returns {Promise<{ url: string, publicId: string }>}
  */
 async function uploadApplicationDocument(buffer, originalName, applicationId) {
-  const sanitizedName = (originalName || 'document').replace(/[^a-zA-Z0-9._-]/g, '_');
+  const parsed = path.parse(originalName || 'document');
+  const sanitizedBaseName = (parsed.name || 'document').replace(/[^a-zA-Z0-9_-]/g, '_');
   return uploadBufferDetails(buffer, {
     folder: 'gov_recruitment/application_docs',
-    public_id: `app_${applicationId}_${Date.now()}_${sanitizedName}`,
+    public_id: `app_${applicationId}_${Date.now()}_${sanitizedBaseName}`,
     resource_type: 'auto',
   });
 }

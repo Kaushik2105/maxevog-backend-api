@@ -43,6 +43,7 @@ router.patch(
 );
 
 // Document management for application
+router.get('/:id/documents/:docId/view', authenticate, applicationController.viewDocument);
 router.post('/:id/documents', authenticate, uploadSingle('document'), applicationController.uploadDocument);
 router.delete('/:id/documents/:docId', authenticate, applicationController.deleteDocument);
 

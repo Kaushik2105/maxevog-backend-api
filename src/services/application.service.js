@@ -9,6 +9,7 @@ const { getPaginationParams, buildPaginationMeta } = require('../utils/paginatio
 const { uploadDocument } = require('./upload.service');
 const { logAction } = require('./audit.service');
 const { AppError } = require('../middleware/error.middleware');
+const { emitApplicationUpdate } = require('./socket.service');
 
 /**
  * Create a direct application tracking entry
@@ -172,6 +173,8 @@ async function addApplicationDocument(applicationId, file, user) {
   application.metadata = meta;
   await application.save();
 
+  emitApplicationUpdate(application.id, application.toJSON());
+
   await logAction({
     actorId: user.id,
     actorRole: user.role,
@@ -228,6 +231,8 @@ async function deleteApplicationDocument(applicationId, docId, user) {
   application.metadata = meta;
   await application.save();
 
+  emitApplicationUpdate(application.id, application.toJSON());
+
   await logAction({
     actorId: user.id,
     actorRole: user.role,
@@ -238,6 +243,37 @@ async function deleteApplicationDocument(applicationId, docId, user) {
   });
 
   return { success: true, removedDocId: docId, documents: currentDocs };
+}
+
+/**
+ * Get document details for viewing / downloading
+ */
+async function getApplicationDocument(applicationId, docId, user) {
+  const application = await Application.findByPk(applicationId);
+  if (!application) {
+    throw new AppError('Application not found', 404);
+  }
+
+  const isOwner = application.userId === user.id;
+  const isAssignedAgent = application.assignedAgentId === user.id;
+  const isAdmin = user.role === 'ADMIN';
+
+  if (!isOwner && !isAssignedAgent && !isAdmin) {
+    throw new AppError('Forbidden: Access denied to view documents for this application', 403);
+  }
+
+  const meta = typeof application.metadata === 'string'
+    ? JSON.parse(application.metadata || '{}')
+    : (application.metadata || {});
+
+  const currentDocs = Array.isArray(meta.documents) ? meta.documents : [];
+  const doc = currentDocs.find((d) => d.id === docId);
+
+  if (!doc) {
+    throw new AppError('Document not found on this application', 404);
+  }
+
+  return { application, document: doc };
 }
 
 /**
@@ -264,6 +300,8 @@ async function authorizeSubmission(id, userId, body = {}) {
   application.statusHistory = history;
 
   await application.save();
+
+  emitApplicationUpdate(application.id, application.toJSON());
 
   await logAction({
     actorId: userId,
@@ -312,6 +350,8 @@ async function completeSubmission(id, { applicationNumber, examDate }, receiptBu
 
   await application.save();
 
+  emitApplicationUpdate(application.id, application.toJSON());
+
   // If linked to assistance request, mark assistance completed
   if (application.assistanceRequestId) {
     await AssistanceRequest.update(
@@ -348,6 +388,8 @@ async function updateApplicationStatus(id, newStatus, actor) {
   application.status = newStatus;
   await application.save();
 
+  emitApplicationUpdate(application.id, application.toJSON());
+
   await logAction({
     actorId: actor.id,
     actorRole: actor.role,
@@ -369,4 +411,5 @@ module.exports = {
   updateApplicationStatus,
   addApplicationDocument,
   deleteApplicationDocument,
+  getApplicationDocument,
 };

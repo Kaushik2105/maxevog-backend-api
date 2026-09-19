@@ -122,6 +122,18 @@ async function deleteDocument(req, res, next) {
   }
 }
 
+async function viewDocument(req, res, next) {
+  try {
+    const { document } = await applicationService.getApplicationDocument(req.params.id, req.params.docId, req.user);
+    if (!document.url) {
+      return res.status(404).json({ success: false, message: 'Document URL not found' });
+    }
+    return res.redirect(document.url);
+  } catch (error) {
+    next(error);
+  }
+}
+
 module.exports = {
   createApplication,
   getUserApplications,
@@ -131,4 +143,5 @@ module.exports = {
   updateStatus,
   uploadDocument,
   deleteDocument,
+  viewDocument,
 };

@@ -20,10 +20,16 @@ async function startServer() {
     // 3. Ensure master administrator account exists
     await ensureAdminAccount();
 
-    // 4. Start Express server
+    // 4. Start HTTP & Socket.IO server
+    const http = require('http');
+    const { initSocket } = require('./services/socket.service');
     const baseUrl = envConfig.app.baseUrl;
-    const server = app.listen(envConfig.app.port, () => {
+    const httpServer = http.createServer(app);
+    initSocket(httpServer);
+
+    const server = httpServer.listen(envConfig.app.port, () => {
       logger.info(`Server running on port ${envConfig.app.port} (${envConfig.app.env})`);
+      logger.info(`WebSocket real-time engine initialized`);
       logger.info(`Swagger Docs: ${baseUrl}/docs`);
       logger.info(`Health Check: ${baseUrl}/health`);
     });

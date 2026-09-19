@@ -349,7 +349,8 @@ async function listAllApplications(query = {}) {
 /**
  * Overview of platform financial transactions & collections
  */
-async function getFinancialsOverview() {
+async function getFinancialsOverview(query = {}) {
+  const { page, limit, offset } = getPaginationParams(query);
   const totalRevenue = await Payment.sum('totalAmount', { where: { status: 'SUCCESS' } }) || 0;
   const assistanceRevenue = await Payment.sum('totalAmount', {
     where: { status: 'SUCCESS', paymentType: 'ASSISTANCE' },
@@ -358,7 +359,7 @@ async function getFinancialsOverview() {
     where: { status: 'SUCCESS', paymentType: 'MEMBERSHIP' },
   }) || 0;
 
-  const recentTransactions = await Payment.findAll({
+  const { count, rows: recentTransactions } = await Payment.findAndCountAll({
     include: [
       {
         model: User,
@@ -368,7 +369,8 @@ async function getFinancialsOverview() {
       },
     ],
     order: [['createdAt', 'DESC']],
-    limit: 25,
+    limit,
+    offset,
   });
 
   return {
@@ -381,17 +383,22 @@ async function getFinancialsOverview() {
       data.type = data.paymentType === 'ASSISTANCE' ? 'ASSISTANCE_FEE' : data.paymentType;
       return data;
     }),
+    meta: buildPaginationMeta({ count, page, limit }),
   };
 }
 
 /**
  * List desk agents and their assigned workloads
  */
-async function listAgents() {
-  const agents = await User.findAll({
+async function listAgents(query = {}) {
+  const { page, limit, offset } = getPaginationParams(query);
+  const { count, rows: agents } = await User.findAndCountAll({
     where: { role: 'AGENT' },
     attributes: ['id', 'email', 'status', 'createdAt'],
     include: [{ model: Profile, as: 'profile' }],
+    order: [['createdAt', 'DESC']],
+    limit,
+    offset,
   });
 
   const agentsWithWorkload = await Promise.all(
@@ -417,7 +424,10 @@ async function listAgents() {
     })
   );
 
-  return agentsWithWorkload;
+  return {
+    agents: agentsWithWorkload,
+    meta: buildPaginationMeta({ count, page, limit }),
+  };
 }
 
 /**

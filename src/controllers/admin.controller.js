@@ -88,11 +88,12 @@ async function listAllApplications(req, res, next) {
 
 async function getFinancialsOverview(req, res, next) {
   try {
-    const financials = await adminService.getFinancialsOverview();
+    const financials = await adminService.getFinancialsOverview(req.query);
     return sendSuccess(res, {
       statusCode: 200,
       message: 'Financials overview fetched successfully',
       data: financials,
+      meta: financials.meta,
     });
   } catch (error) {
     next(error);
@@ -101,11 +102,13 @@ async function getFinancialsOverview(req, res, next) {
 
 async function listAgents(req, res, next) {
   try {
-    const agents = await adminService.listAgents();
+    const result = await adminService.listAgents(req.query);
+    const agents = result.agents || result;
     return sendSuccess(res, {
       statusCode: 200,
       message: 'Desk agents fetched successfully',
       data: { agents },
+      meta: result.meta,
     });
   } catch (error) {
     next(error);
